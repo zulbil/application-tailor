@@ -13,7 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
               <FileText className="size-5" />
             </div>
-            <span className="font-serif text-xl font-bold tracking-tight">applyforme</span>
+            <span className="font-serif text-xl font-bold tracking-tight">Apply4Me</span>
           </div>
 
           <nav className="flex items-center gap-1 sm:gap-4">
