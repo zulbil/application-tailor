@@ -6,6 +6,7 @@ import {
   education,
   jobApplications,
   weeklyChallenges,
+  users,
   type Profile, 
   type InsertProfile,
   type Experience,
@@ -16,7 +17,9 @@ import {
   type InsertJobApplication,
   type WeeklyChallenge,
   type InsertWeeklyChallenge,
-  type ApplicationStatus
+  type ApplicationStatus,
+  type User,
+  type UpsertUser
 } from "@shared/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 
@@ -38,8 +41,11 @@ function getWeekStart(date: Date = new Date()): string {
 }
 
 export interface IStorage {
-  getProfile(): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] } | null>;
-  saveProfile(profile: InsertProfile, experiencesData: InsertExperience[], educationData: InsertEducation[]): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] }>;
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  getProfileByUserId(userId: string): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] } | null>;
+  saveProfile(userId: string, profile: InsertProfile, experiencesData: InsertExperience[], educationData: InsertEducation[]): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] }>;
   
   getJobApplications(profileId: string): Promise<JobApplication[]>;
   createJobApplication(profileId: string, data: InsertJobApplication): Promise<JobApplication>;
@@ -52,8 +58,28 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getProfile(): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] } | null> {
-    const profileRows = await db.select().from(profiles).limit(1);
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getProfileByUserId(userId: string): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] } | null> {
+    const profileRows = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
     
     if (profileRows.length === 0) {
       return null;
@@ -78,11 +104,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveProfile(
+    userId: string,
     profileData: InsertProfile,
     experiencesData: InsertExperience[],
     educationData: InsertEducation[]
   ): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] }> {
-    const existingProfileRows = await db.select().from(profiles).limit(1);
+    const existingProfileRows = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
 
     let profile: Profile;
 
@@ -97,7 +124,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(experiences).where(eq(experiences.profileId, profile.id));
       await db.delete(education).where(eq(education.profileId, profile.id));
     } else {
-      const [newProfile] = await db.insert(profiles).values(profileData).returning();
+      const [newProfile] = await db.insert(profiles).values({ ...profileData, userId }).returning();
       profile = newProfile;
     }
 

@@ -1,10 +1,11 @@
 import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
-import { insertProfileSchema, insertExperienceSchema, insertEducationSchema, insertJobApplicationSchema, applicationStatusEnum } from "@shared/schema";
+import { insertProfileSchema, insertExperienceSchema, insertEducationSchema, applicationStatusEnum } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTailoredResume, generateCoverLetter } from "./openai";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 const saveProfileSchema = z.object({
   profile: insertProfileSchema,
@@ -39,9 +40,23 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  app.get("/api/profile", async (req, res) => {
+  await setupAuth(app);
+
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const data = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.get("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const data = await storage.getProfileByUserId(userId);
       
       if (!data) {
         return res.json({
@@ -95,7 +110,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/profile", async (req, res) => {
+  app.post("/api/profile", isAuthenticated, async (req: any, res) => {
     try {
       const validation = saveProfileSchema.safeParse(req.body);
       
@@ -104,8 +119,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
+      const userId = req.user.claims.sub;
       const { profile, experiences, education } = validation.data;
-      const saved = await storage.saveProfile(profile, experiences, education);
+      const saved = await storage.saveProfile(userId, profile, experiences, education);
 
       return res.json({
         profile: {
@@ -142,7 +158,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/generate-resume", async (req, res) => {
+  app.post("/api/generate-resume", isAuthenticated, async (req: any, res) => {
     try {
       const validation = generateResumeSchema.safeParse(req.body);
       
@@ -151,7 +167,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       
       if (!profileData) {
         return res.status(400).json({ error: "Please save your profile first" });
@@ -192,7 +209,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/generate-cover-letter", async (req, res) => {
+  app.post("/api/generate-cover-letter", isAuthenticated, async (req: any, res) => {
     try {
       const validation = generateResumeSchema.safeParse(req.body);
       
@@ -201,7 +218,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       
       if (!profileData) {
         return res.status(400).json({ error: "Please save your profile first" });
@@ -242,9 +260,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/applications", async (req, res) => {
+  app.get("/api/applications", isAuthenticated, async (req: any, res) => {
     try {
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       if (!profileData) {
         return res.json([]);
       }
@@ -256,7 +275,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/applications", async (req, res) => {
+  app.post("/api/applications", isAuthenticated, async (req: any, res) => {
     try {
       const validation = createApplicationSchema.safeParse(req.body);
       
@@ -265,7 +284,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       if (!profileData) {
         return res.status(400).json({ error: "Please save your profile first" });
       }
@@ -278,7 +298,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/applications/:id/status", async (req, res) => {
+  app.patch("/api/applications/:id/status", isAuthenticated, async (req, res) => {
     try {
       const validation = updateStatusSchema.safeParse(req.body);
       
@@ -298,7 +318,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/applications/:id", async (req, res) => {
+  app.delete("/api/applications/:id", isAuthenticated, async (req, res) => {
     try {
       const deleted = await storage.deleteJobApplication(req.params.id);
       if (!deleted) {
@@ -311,9 +331,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/challenge", async (req, res) => {
+  app.get("/api/challenge", isAuthenticated, async (req: any, res) => {
     try {
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       if (!profileData) {
         return res.json(null);
       }
@@ -325,7 +346,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/challenge", async (req, res) => {
+  app.post("/api/challenge", isAuthenticated, async (req: any, res) => {
     try {
       const validation = challengeSchema.safeParse(req.body);
       
@@ -334,7 +355,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
-      const profileData = await storage.getProfile();
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
       if (!profileData) {
         return res.status(400).json({ error: "Please save your profile first" });
       }
@@ -347,7 +369,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/challenge/acknowledge", async (req, res) => {
+  app.post("/api/challenge/acknowledge", isAuthenticated, async (req, res) => {
     try {
       const { challengeId } = req.body;
       if (!challengeId) {
