@@ -1,0 +1,247 @@
+Build a small web app called “Job Application Tailor” that I can use for myself to generate tailored resumes and cover letters from my saved profile and a job description.
+
+Tech Stack
+
+Backend: Node.js + Express
+
+Frontend: Simple HTML/CSS/JavaScript (or a lightweight React SPA if you prefer)
+
+Persistence: any simple option (e.g. a JSON file or SQLite) but I don’t want to manually edit JSON. I just want to use forms in the UI.
+
+Use dotenv for OPENAI_API_KEY.
+
+High-Level Features
+
+Profile Management (Single User)
+
+A “Profile” page/section where I can:
+
+Enter and save:
+
+Name, email, phone, location, headline
+
+Skills (comma-separated or tags)
+
+Manage my Work Experiences:
+
+Add new experience
+
+Edit existing experience
+
+Delete experience
+
+Each experience should have:
+
+Company
+
+Job Title
+
+Location
+
+Start Date (text is fine)
+
+End Date (text or “Present”)
+
+A large textarea for responsibilities / achievements (I’ll paste my raw bullets here)
+
+This profile should be saved persistently on the server (JSON or SQLite), so if Replit restarts, my data is still there.
+
+Job Description Input
+
+A “Job Application” page/section where I can:
+
+Paste a Job Description into a big textarea.
+
+Optionally fill in:
+
+Target Job Title
+
+Company Name
+
+Tone (dropdown: “Professional”, “Friendly”, “Confident”)
+
+Buttons:
+
+Generate Tailored Resume
+
+Generate Cover Letter
+
+OpenAI Integration
+
+Use the OpenAI API with:
+
+A system message and a user message that you construct in the backend.
+
+System message (for both resume & cover letter):
+
+You are an expert resume writer and career coach. You rewrite resumes and cover letters to match specific job descriptions, while staying truthful to the candidate’s real experience. You always use clear, concise bullet points, measurable impact (metrics, percentages, time saved, etc.), and modern tech keywords where appropriate. Your style is recruiter-friendly and optimized for ATS.
+
+User message for resume generation:
+
+Build the user message in code like this:
+
+Include my saved profile data (personal info, skills, experiences) as structured text or JSON.
+
+Include the job description I pasted.
+
+Then ask the model to do the following:
+
+I will give you:
+
+My profile (personal info, skills, work experiences)
+
+A job description
+
+Using both, generate a tailored resume in this exact structure:
+
+1. Updated Logline
+
+3 short bullets that summarize me for this role.
+
+2. Tailored Experiences
+For EACH experience in my profile, return:
+
+Company, Title, Location, Dates (unchanged)
+
+Exactly 3 bullet points.
+
+Each bullet must:
+
+Be an accomplishment, not just a responsibility
+
+Include a metric or clear impact (%, time, speed, reliability, money, etc.) whenever possible
+
+Use at least one relevant technology or concept from the job description when it makes sense (e.g. React, TypeScript, Vue, design sensibility, CRM, integrations, etc.)
+
+3. Technologies from Job Description
+
+A single line: comma-separated list of technologies and tools found in the JD.
+
+Requirements:
+
+Do not invent technologies I don’t have; only map what I already have to the JD.
+
+Do not change my job titles, company names, or dates.
+
+Keep bullets concise and recruiter-friendly.
+
+Here is my profile:
+[INSERT PROFILE OBJECT HERE]
+
+Here is the job description:
+[INSERT JOB DESCRIPTION TEXT HERE]
+
+The backend should parse the model’s response and send JSON to the frontend, e.g.:
+
+{
+  "logline": ["...", "...", "..."],
+  "experiences": [
+    {
+      "company": "...",
+      "title": "...",
+      "location": "...",
+      "start": "...",
+      "end": "...",
+      "bullets": ["...", "...", "..."]
+    }
+  ],
+  "technologies": "React, TypeScript, Vue, ..."
+}
+
+User message for cover letter generation:
+
+Create a second endpoint or option that asks the model to generate a cover letter:
+
+Using the same profile and job description, write a one-page cover letter tailored to this role.
+
+Use the target job title and company name if provided.
+
+The tone should match this value: [Tone].
+
+Highlight my most relevant experiences and tech skills for this job.
+
+Mention 2–3 specific responsibilities or keywords from the job description to show alignment.
+
+Keep it concise, professional, and ready to paste into an application form.
+
+Return JSON like:
+
+{
+  "coverLetter": "Full cover letter text..."
+}
+
+Backend API Endpoints
+
+GET /api/profile → returns saved profile (personal info, skills, experiences).
+
+POST /api/profile → saves/updates profile (personal info, skills) and experiences.
+
+POST /api/generate-resume → body: { jobDescription, jobTitle?, companyName?, tone? }, returns tailored resume JSON.
+
+POST /api/generate-cover-letter → same body, returns { coverLetter }.
+
+Frontend UI Requirements
+
+Two main sections (tabs or cards):
+
+1. Profile
+
+Form fields:
+
+Name, Email, Phone, Location, Headline
+
+Skills (textarea or tags)
+
+A dynamic list for Work Experience:
+
+For each experience:
+
+Inputs: Company, Title, Location, Start, End
+
+Textarea: “Details / Achievements” (I’ll paste my bullets).
+
+Buttons: “Add Experience”, “Delete Experience”.
+
+A “Save Profile” button that sends everything to POST /api/profile.
+
+On load, fetch GET /api/profile and populate the form.
+
+2. Job Application
+
+Textarea for Job Description.
+
+Inputs for Job Title, Company Name, Tone (select).
+
+Buttons:
+
+“Generate Tailored Resume” → calls /api/generate-resume
+
+“Generate Cover Letter” → calls /api/generate-cover-letter
+
+Display areas:
+
+Updated Logline (3 bullets)
+
+Tailored Experiences (grouped by experience, with 3 bullets each)
+
+Technologies from JD
+
+Cover Letter (multi-line text box)
+
+Add a “Copy to clipboard” button for:
+
+Logline + Experiences (as one block of text)
+
+Technologies line
+
+Cover Letter text
+
+Other
+
+Add a simple README.md explaining:
+
+How to set OPENAI_API_KEY in Replit Secrets.
+
+How to run the app.
+
+Keep the code clean and commented so I can extend it later (e.g., add “Generate LinkedIn About” using the same profile + JD).
