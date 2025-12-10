@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Loader2, Wand2, Copy, Check, FileText, FileUser } from "lucide-react";
 import { api } from "@/lib/api";
-import { JobApplication, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
+import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ export default function JobApplicationPage() {
   const [resume, setResume] = useState<GeneratedResume | null>(null);
   const [coverLetter, setCoverLetter] = useState<GeneratedCoverLetter | null>(null);
 
-  const form = useForm<JobApplication>({
+  const form = useForm<JobApplicationInput>({
     defaultValues: {
       jobDescription: "",
       jobTitle: "",
@@ -33,9 +33,20 @@ export default function JobApplicationPage() {
 
   useEffect(() => {
     api.getProfile().then(setProfile);
+    
+    const prefill = sessionStorage.getItem("prefillApplication");
+    if (prefill) {
+      try {
+        const data = JSON.parse(prefill);
+        if (data.company) form.setValue("companyName", data.company);
+        if (data.jobTitle) form.setValue("jobTitle", data.jobTitle);
+        if (data.jobDescription) form.setValue("jobDescription", data.jobDescription);
+        sessionStorage.removeItem("prefillApplication");
+      } catch (e) {}
+    }
   }, []);
 
-  const handleGenerateResume = async (data: JobApplication) => {
+  const handleGenerateResume = async (data: JobApplicationInput) => {
     if (!profile) {
       toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
       return;
@@ -55,7 +66,7 @@ export default function JobApplicationPage() {
     }
   };
 
-  const handleGenerateCoverLetter = async (data: JobApplication) => {
+  const handleGenerateCoverLetter = async (data: JobApplicationInput) => {
     if (!profile) {
       toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
       return;

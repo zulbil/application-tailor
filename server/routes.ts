@@ -24,7 +24,14 @@ const updateStatusSchema = z.object({
 });
 
 const challengeSchema = z.object({
-  goalCount: z.number().min(1).max(100),
+  goalCount: z.number().int().min(1).max(100),
+});
+
+const createApplicationSchema = z.object({
+  company: z.string().min(1, "Company is required"),
+  jobTitle: z.string().min(1, "Job title is required"),
+  jobDescription: z.string().default(""),
+  status: z.enum(applicationStatusEnum).optional(),
 });
 
 export async function registerRoutes(
@@ -251,7 +258,7 @@ export async function registerRoutes(
 
   app.post("/api/applications", async (req, res) => {
     try {
-      const validation = insertJobApplicationSchema.safeParse(req.body);
+      const validation = createApplicationSchema.safeParse(req.body);
       
       if (!validation.success) {
         const errorMessage = fromZodError(validation.error).message;

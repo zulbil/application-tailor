@@ -127,17 +127,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobApplications(profileId: string): Promise<JobApplication[]> {
-    return db
+    const results = await db
       .select()
       .from(jobApplications)
-      .where(eq(jobApplications.profileId, profileId))
-      .orderBy(jobApplications.createdAt);
+      .where(eq(jobApplications.profileId, profileId));
+    return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   async createJobApplication(profileId: string, data: InsertJobApplication): Promise<JobApplication> {
     const [application] = await db
       .insert(jobApplications)
-      .values({ ...data, profileId })
+      .values({ 
+        ...data, 
+        profileId,
+        status: data.status || "created"
+      })
       .returning();
     return application;
   }

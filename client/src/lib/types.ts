@@ -29,7 +29,7 @@ export interface Profile {
   education: Education[];
 }
 
-export interface JobApplication {
+export interface JobApplicationInput {
   jobDescription: string;
   jobTitle: string;
   companyName: string;
@@ -51,4 +51,31 @@ export interface GeneratedResume {
 
 export interface GeneratedCoverLetter {
   coverLetter: string;
+}
+
+export type ApplicationStatus = "created" | "applied" | "interviewing" | "rejected" | "offered";
+
+export interface TrackedApplication {
+  id: string;
+  profileId: string;
+  company: string;
+  jobTitle: string;
+  jobDescription: string;
+  status: ApplicationStatus;
+  createdAt: string;
+  statusUpdatedAt: string;
+}
+
+export interface WeeklyChallenge {
+  id: string;
+  profileId: string;
+  weekStart: string;
+  goalCount: number;
+  reminderSent: boolean;
+}
+
+export interface ChallengeData {
+  challenge: WeeklyChallenge;
+  progress: number;
+  shouldRemind: boolean;
 }

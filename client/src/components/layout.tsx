@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BriefcaseBusiness, User, FileText } from "lucide-react";
+import { LayoutDashboard, User, FileText } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -23,23 +23,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ? "bg-primary/10 text-primary" 
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}>
-              <User className="size-4" />
-              Profile
+              <LayoutDashboard className="size-4" />
+              Dashboard
             </Link>
-            <Link href="/application" className={cn(
+            <Link href="/profile" className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-              location === "/application" 
+              location === "/profile" 
                 ? "bg-primary/10 text-primary" 
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             )}>
-              <BriefcaseBusiness className="size-4" />
-              Job Application
+              <User className="size-4" />
+              Profile
             </Link>
           </nav>
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
+      <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
         {children}
       </main>
 
