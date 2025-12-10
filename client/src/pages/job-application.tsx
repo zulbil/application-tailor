@@ -43,6 +43,9 @@ export default function JobApplicationPage() {
     setIsGeneratingResume(true);
     try {
       const result = await api.generateResume(data);
+      if (!result.logline || !result.experiences || !result.technologies) {
+        throw new Error("Invalid response from AI. Please try again.");
+      }
       setResume(result);
       toast({ title: "Resume Generated", description: "Your tailored resume is ready." });
     } catch (e: any) {
@@ -160,7 +163,7 @@ export default function JobApplicationPage() {
           </TabsList>
 
           <TabsContent value="resume" className="space-y-4 mt-4">
-            {!resume ? (
+            {!resume || !resume.logline ? (
               <div className="h-[400px] flex flex-col items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground bg-muted/10">
                 <Wand2 className="size-12 mb-4 opacity-20" />
                 <p>Fill out the job details and click Generate Resume</p>
@@ -170,13 +173,13 @@ export default function JobApplicationPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg">Logline & Summary</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(resume.logline.join("\n"))}>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard((resume.logline || []).join("\n"))}>
                       <Copy className="size-4" />
                     </Button>
                   </CardHeader>
                   <CardContent>
                     <ul className="list-disc list-outside ml-4 space-y-1 text-sm text-foreground/90">
-                      {resume.logline.map((line, i) => (
+                      {(resume.logline || []).map((line, i) => (
                         <li key={i}>{line}</li>
                       ))}
                     </ul>
@@ -186,12 +189,12 @@ export default function JobApplicationPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg">Relevant Skills</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(resume.technologies)}>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(resume.technologies || "")}>
                       <Copy className="size-4" />
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm font-medium">{resume.technologies}</p>
+                    <p className="text-sm font-medium">{resume.technologies || "No technologies found"}</p>
                   </CardContent>
                 </Card>
 
@@ -199,7 +202,7 @@ export default function JobApplicationPage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-serif font-semibold">Experience</h3>
                   </div>
-                  {resume.experiences.map((exp, i) => (
+                  {(resume.experiences || []).map((exp, i) => (
                     <Card key={i}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
@@ -214,7 +217,7 @@ export default function JobApplicationPage() {
                       </CardHeader>
                       <CardContent>
                         <ul className="list-disc list-outside ml-4 space-y-1.5 text-sm text-foreground/90">
-                          {exp.bullets.map((bullet, j) => (
+                          {(exp.bullets || []).map((bullet, j) => (
                             <li key={j}>{bullet}</li>
                           ))}
                         </ul>

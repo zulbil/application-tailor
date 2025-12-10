@@ -145,7 +145,20 @@ ${jobApp.companyName ? `Target Company: ${jobApp.companyName}` : ""}`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  return JSON.parse(content);
+  const parsed = JSON.parse(content);
+  
+  // Validate the response has required fields
+  if (!parsed.logline || !Array.isArray(parsed.logline)) {
+    parsed.logline = ["Unable to generate logline. Please try again."];
+  }
+  if (!parsed.experiences || !Array.isArray(parsed.experiences)) {
+    parsed.experiences = [];
+  }
+  if (!parsed.technologies) {
+    parsed.technologies = "";
+  }
+  
+  return parsed;
 }
 
 export async function generateCoverLetter(
@@ -210,5 +223,12 @@ ${jobApp.companyName ? `Target Company: ${jobApp.companyName}` : ""}`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  return JSON.parse(content);
+  const parsed = JSON.parse(content);
+  
+  // Validate the response has required field
+  if (!parsed.coverLetter) {
+    parsed.coverLetter = "Unable to generate cover letter. Please try again.";
+  }
+  
+  return parsed;
 }
