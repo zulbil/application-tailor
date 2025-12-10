@@ -267,20 +267,20 @@ function KanbanColumn({
   const config = statusConfig[status];
   
   return (
-    <div className="flex-shrink-0 w-72 md:w-auto md:flex-1">
-      <div className={`rounded-xl ${config.bgColor} border ${config.borderColor} p-3`}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className={`${config.color}`}>{config.icon}</span>
-            <h3 className={`font-semibold text-sm ${config.color}`}>
+    <div className="flex-1 min-w-0">
+      <div className={`rounded-xl ${config.bgColor} border ${config.borderColor} p-2 sm:p-3 h-full`}>
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className={`${config.color} hidden sm:block`}>{config.icon}</span>
+            <h3 className={`font-semibold text-xs sm:text-sm ${config.color} truncate`}>
               {config.label}
             </h3>
           </div>
-          <Badge variant="outline" className={`${config.color} border-current/30 text-xs`}>
+          <Badge variant="outline" className={`${config.color} border-current/30 text-xs h-5 px-1.5`}>
             {applications.length}
           </Badge>
         </div>
-        <div className="space-y-3 min-h-[120px]">
+        <div className="space-y-2 sm:space-y-3 min-h-[100px] max-h-[400px] overflow-y-auto">
           {applications.map((app) => (
             <ApplicationCard
               key={app.id}
@@ -291,11 +291,11 @@ function KanbanColumn({
             />
           ))}
           {applications.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className={`size-10 rounded-full ${config.bgColor} border ${config.borderColor} flex items-center justify-center mb-2`}>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <div className={`size-8 rounded-full ${config.bgColor} border ${config.borderColor} flex items-center justify-center mb-1.5`}>
                 {config.icon}
               </div>
-              <p className="text-xs text-muted-foreground">No applications</p>
+              <p className="text-xs text-muted-foreground">Empty</p>
             </div>
           )}
         </div>
@@ -506,51 +506,71 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="xl:col-span-1 space-y-4">
-          <WeeklyChallengeCard 
-            challengeData={challengeData || null}
-            onSetGoal={(goal) => setChallengeMutation.mutate(goal)}
-            onAcknowledge={() => acknowledgeMutation.mutate()}
-          />
-        </div>
+      {/* Weekly Challenge Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <WeeklyChallengeCard 
+          challengeData={challengeData || null}
+          onSetGoal={(goal) => setChallengeMutation.mutate(goal)}
+          onAcknowledge={() => acknowledgeMutation.mutate()}
+        />
+      </div>
 
-        {/* Kanban Board */}
-        <div className="xl:col-span-3">
-          {/* Mobile: Tabbed View */}
-          <div className="block lg:hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <ScrollArea className="w-full">
-                <TabsList className="w-full justify-start mb-4">
-                  <TabsTrigger value="all" className="text-xs">
-                    All ({applications.length})
+      {/* Kanban Board - Full Width */}
+      <div>
+        {/* Mobile: Tabbed View */}
+        <div className="block md:hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <ScrollArea className="w-full">
+              <TabsList className="w-full justify-start mb-4">
+                <TabsTrigger value="all" className="text-xs">
+                  All ({applications.length})
+                </TabsTrigger>
+                {statusOrder.map((status) => (
+                  <TabsTrigger key={status} value={status} className="text-xs">
+                    {statusConfig[status].label} ({groupedApplications[status]?.length || 0})
                   </TabsTrigger>
-                  {statusOrder.map((status) => (
-                    <TabsTrigger key={status} value={status} className="text-xs">
-                      {statusConfig[status].label} ({groupedApplications[status]?.length || 0})
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-              
-              <TabsContent value="all" className="mt-0 space-y-3">
-                {applications.length === 0 ? (
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+            
+            <TabsContent value="all" className="mt-0 space-y-3">
+              {applications.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                    <Briefcase className="size-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold mb-1">No applications yet</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Add your first job application to get started</p>
+                  <Button onClick={() => setIsAddOpen(true)}>
+                    <Plus className="size-4 mr-2" />
+                    Add Application
+                  </Button>
+                </Card>
+              ) : (
+                applications.map((app) => (
+                  <ApplicationCard
+                    key={app.id}
+                    application={app}
+                    onStatusChange={(newStatus) => updateStatusMutation.mutate({ id: app.id, status: newStatus })}
+                    onDelete={() => deleteMutation.mutate(app.id)}
+                    onGenerateResume={() => handleGenerateResume(app)}
+                  />
+                ))
+              )}
+            </TabsContent>
+            
+            {statusOrder.map((status) => (
+              <TabsContent key={status} value={status} className="mt-0 space-y-3">
+                {groupedApplications[status]?.length === 0 ? (
                   <Card className="p-8 text-center">
-                    <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <Briefcase className="size-6 text-primary" />
+                    <div className={`size-12 rounded-full ${statusConfig[status].bgColor} flex items-center justify-center mx-auto mb-3`}>
+                      {statusConfig[status].icon}
                     </div>
-                    <h3 className="font-semibold mb-1">No applications yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Add your first job application to get started</p>
-                    <Button onClick={() => setIsAddOpen(true)}>
-                      <Plus className="size-4 mr-2" />
-                      Add Application
-                    </Button>
+                    <p className="text-sm text-muted-foreground">No {statusConfig[status].label.toLowerCase()} applications</p>
                   </Card>
                 ) : (
-                  applications.map((app) => (
+                  groupedApplications[status]?.map((app) => (
                     <ApplicationCard
                       key={app.id}
                       application={app}
@@ -561,49 +581,23 @@ export default function DashboardPage() {
                   ))
                 )}
               </TabsContent>
-              
-              {statusOrder.map((status) => (
-                <TabsContent key={status} value={status} className="mt-0 space-y-3">
-                  {groupedApplications[status]?.length === 0 ? (
-                    <Card className="p-8 text-center">
-                      <div className={`size-12 rounded-full ${statusConfig[status].bgColor} flex items-center justify-center mx-auto mb-3`}>
-                        {statusConfig[status].icon}
-                      </div>
-                      <p className="text-sm text-muted-foreground">No {statusConfig[status].label.toLowerCase()} applications</p>
-                    </Card>
-                  ) : (
-                    groupedApplications[status]?.map((app) => (
-                      <ApplicationCard
-                        key={app.id}
-                        application={app}
-                        onStatusChange={(newStatus) => updateStatusMutation.mutate({ id: app.id, status: newStatus })}
-                        onDelete={() => deleteMutation.mutate(app.id)}
-                        onGenerateResume={() => handleGenerateResume(app)}
-                      />
-                    ))
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
-          </div>
+            ))}
+          </Tabs>
+        </div>
 
-          {/* Desktop: Kanban Columns */}
-          <div className="hidden lg:block">
-            <ScrollArea className="w-full">
-              <div className="flex gap-4 pb-4">
-                {statusOrder.map((status) => (
-                  <KanbanColumn
-                    key={status}
-                    status={status}
-                    applications={groupedApplications[status] || []}
-                    onStatusChange={(id, newStatus) => updateStatusMutation.mutate({ id, status: newStatus })}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                    onGenerateResume={handleGenerateResume}
-                  />
-                ))}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+        {/* Desktop: Kanban Columns - All 5 in One Row */}
+        <div className="hidden md:block">
+          <div className="grid grid-cols-5 gap-3">
+            {statusOrder.map((status) => (
+              <KanbanColumn
+                key={status}
+                status={status}
+                applications={groupedApplications[status] || []}
+                onStatusChange={(id, newStatus) => updateStatusMutation.mutate({ id, status: newStatus })}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                onGenerateResume={handleGenerateResume}
+              />
+            ))}
           </div>
         </div>
       </div>
