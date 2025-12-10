@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
-import { insertProfileSchema, insertExperienceSchema } from "@shared/schema";
+import { insertProfileSchema, insertExperienceSchema, insertEducationSchema } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTailoredResume, generateCoverLetter } from "./openai";
@@ -9,6 +9,7 @@ import { generateTailoredResume, generateCoverLetter } from "./openai";
 const saveProfileSchema = z.object({
   profile: insertProfileSchema,
   experiences: z.array(insertExperienceSchema),
+  education: z.array(insertEducationSchema),
 });
 
 const generateResumeSchema = z.object({
@@ -38,7 +39,8 @@ export async function registerRoutes(
             headline: "",
             skills: "",
           },
-          experiences: []
+          experiences: [],
+          education: []
         });
       }
 
@@ -60,6 +62,14 @@ export async function registerRoutes(
           startDate: exp.startDate,
           endDate: exp.endDate,
           responsibilities: exp.responsibilities,
+        })),
+        education: data.education.map(edu => ({
+          id: edu.id,
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate,
         }))
       });
     } catch (error) {
@@ -77,8 +87,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
-      const { profile, experiences } = validation.data;
-      const saved = await storage.saveProfile(profile, experiences);
+      const { profile, experiences, education } = validation.data;
+      const saved = await storage.saveProfile(profile, experiences, education);
 
       return res.json({
         profile: {
@@ -98,6 +108,14 @@ export async function registerRoutes(
           startDate: exp.startDate,
           endDate: exp.endDate,
           responsibilities: exp.responsibilities,
+        })),
+        education: saved.education.map(edu => ({
+          id: edu.id,
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate,
         }))
       });
     } catch (error) {
@@ -137,6 +155,13 @@ export async function registerRoutes(
             startDate: exp.startDate,
             endDate: exp.endDate,
             responsibilities: exp.responsibilities,
+          })),
+          education: profileData.education.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            field: edu.field,
+            startDate: edu.startDate,
+            endDate: edu.endDate,
           }))
         },
         validation.data
@@ -180,6 +205,13 @@ export async function registerRoutes(
             startDate: exp.startDate,
             endDate: exp.endDate,
             responsibilities: exp.responsibilities,
+          })),
+          education: profileData.education.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            field: edu.field,
+            startDate: edu.startDate,
+            endDate: edu.endDate,
           }))
         },
         validation.data

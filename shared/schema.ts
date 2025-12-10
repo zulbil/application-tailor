@@ -25,6 +25,16 @@ export const experiences = pgTable("experiences", {
   responsibilities: text("responsibilities").notNull(),
 });
 
+export const education = pgTable("education", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  school: text("school").notNull(),
+  degree: text("degree").notNull(),
+  field: text("field").notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+});
+
 export const insertProfileSchema = createInsertSchema(profiles).omit({
   id: true,
 });
@@ -34,7 +44,14 @@ export const insertExperienceSchema = createInsertSchema(experiences).omit({
   profileId: true,
 });
 
+export const insertEducationSchema = createInsertSchema(education).omit({
+  id: true,
+  profileId: true,
+});
+
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
 export type Profile = typeof profiles.$inferSelect;
 export type InsertExperience = z.infer<typeof insertExperienceSchema>;
 export type Experience = typeof experiences.$inferSelect;
+export type InsertEducation = z.infer<typeof insertEducationSchema>;
+export type Education = typeof education.$inferSelect;

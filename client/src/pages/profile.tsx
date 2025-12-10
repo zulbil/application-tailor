@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, Loader2, Save } from "lucide-react";
+import { Plus, Trash2, Loader2, Save, GraduationCap, Briefcase } from "lucide-react";
 import { api } from "@/lib/api";
 import { Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -25,13 +24,19 @@ export default function ProfilePage() {
       location: "",
       headline: "",
       skills: "",
-      experiences: []
+      experiences: [],
+      education: []
     }
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields: experienceFields, append: appendExperience, remove: removeExperience } = useFieldArray({
     control: form.control,
     name: "experiences"
+  });
+
+  const { fields: educationFields, append: appendEducation, remove: removeEducation } = useFieldArray({
+    control: form.control,
+    name: "education"
   });
 
   useEffect(() => {
@@ -83,7 +88,7 @@ export default function ProfilePage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-serif font-bold text-foreground">Your Profile</h1>
-        <p className="text-muted-foreground">Manage your personal information and work history to generate tailored applications.</p>
+        <p className="text-muted-foreground">Manage your personal information, work history, and education to generate tailored applications.</p>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -97,32 +102,33 @@ export default function ProfilePage() {
           <CardContent className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" {...form.register("firstName")} placeholder="Jane" />
+              <Input id="firstName" data-testid="input-firstName" {...form.register("firstName")} placeholder="Jane" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" {...form.register("lastName")} placeholder="Doe" />
+              <Input id="lastName" data-testid="input-lastName" {...form.register("lastName")} placeholder="Doe" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register("email")} placeholder="jane@example.com" />
+              <Input id="email" data-testid="input-email" type="email" {...form.register("email")} placeholder="jane@example.com" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" {...form.register("phone")} placeholder="+1 (555) 000-0000" />
+              <Input id="phone" data-testid="input-phone" {...form.register("phone")} placeholder="+1 (555) 000-0000" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
-              <Input id="location" {...form.register("location")} placeholder="San Francisco, CA" />
+              <Input id="location" data-testid="input-location" {...form.register("location")} placeholder="San Francisco, CA" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="headline">Headline</Label>
-              <Input id="headline" {...form.register("headline")} placeholder="Senior Software Engineer" />
+              <Input id="headline" data-testid="input-headline" {...form.register("headline")} placeholder="Senior Software Engineer" />
             </div>
             <div className="col-span-full space-y-2">
               <Label htmlFor="skills">Skills (Comma separated)</Label>
               <Textarea 
                 id="skills" 
+                data-testid="input-skills"
                 {...form.register("skills")} 
                 placeholder="React, TypeScript, Node.js, Project Management, ..." 
                 className="min-h-[80px]"
@@ -134,15 +140,19 @@ export default function ProfilePage() {
         {/* Work Experience */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle>Work Experience</CardTitle>
-              <CardDescription>Add your past roles. Be detailed in the responsibilities.</CardDescription>
+            <div className="flex items-center gap-3">
+              <Briefcase className="size-5 text-primary" />
+              <div>
+                <CardTitle>Work Experience</CardTitle>
+                <CardDescription>Add your past roles. Be detailed in the responsibilities.</CardDescription>
+              </div>
             </div>
             <Button 
               type="button" 
               variant="outline" 
               size="sm" 
-              onClick={() => append({ 
+              data-testid="button-add-experience"
+              onClick={() => appendExperience({ 
                 id: crypto.randomUUID(), 
                 company: "", 
                 title: "", 
@@ -157,14 +167,15 @@ export default function ProfilePage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-6">
-            {fields.map((field, index) => (
-              <div key={field.id} className="relative grid gap-4 rounded-lg border p-4 bg-muted/30">
+            {experienceFields.map((field, index) => (
+              <div key={field.id} className="relative grid gap-4 rounded-lg border p-4 bg-muted/30" data-testid={`card-experience-${index}`}>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 top-2 text-muted-foreground hover:text-destructive"
-                  onClick={() => remove(index)}
+                  data-testid={`button-delete-experience-${index}`}
+                  onClick={() => removeExperience(index)}
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -205,7 +216,7 @@ export default function ProfilePage() {
               </div>
             ))}
             
-            {fields.length === 0 && (
+            {experienceFields.length === 0 && (
               <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
                 No experience added yet. Click "Add Experience" to start.
               </div>
@@ -213,8 +224,85 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
+        {/* Education */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-3">
+              <GraduationCap className="size-5 text-primary" />
+              <div>
+                <CardTitle>Education</CardTitle>
+                <CardDescription>Add your educational background.</CardDescription>
+              </div>
+            </div>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              data-testid="button-add-education"
+              onClick={() => appendEducation({ 
+                id: crypto.randomUUID(), 
+                school: "", 
+                degree: "", 
+                field: "", 
+                startDate: "", 
+                endDate: ""
+              })}
+            >
+              <Plus className="size-4 mr-2" />
+              Add Education
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {educationFields.map((field, index) => (
+              <div key={field.id} className="relative grid gap-4 rounded-lg border p-4 bg-muted/30" data-testid={`card-education-${index}`}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2 text-muted-foreground hover:text-destructive"
+                  data-testid={`button-delete-education-${index}`}
+                  onClick={() => removeEducation(index)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>School / University</Label>
+                    <Input {...form.register(`education.${index}.school`)} placeholder="Stanford University" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Degree</Label>
+                    <Input {...form.register(`education.${index}.degree`)} placeholder="Bachelor of Science" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Field of Study</Label>
+                    <Input {...form.register(`education.${index}.field`)} placeholder="Computer Science" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Input {...form.register(`education.${index}.startDate`)} placeholder="Sep 2016" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Input {...form.register(`education.${index}.endDate`)} placeholder="May 2020" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {educationFields.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                No education added yet. Click "Add Education" to start.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="sticky bottom-4 flex justify-end">
-          <Button type="submit" size="lg" disabled={isSaving} className="shadow-lg">
+          <Button type="submit" size="lg" disabled={isSaving} className="shadow-lg" data-testid="button-save-profile">
             {isSaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Save className="size-4 mr-2" />}
             Save Profile
           </Button>

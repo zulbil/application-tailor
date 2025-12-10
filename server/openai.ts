@@ -22,6 +22,13 @@ export interface ProfileData {
     endDate: string;
     responsibilities: string;
   }>;
+  education: Array<{
+    school: string;
+    degree: string;
+    field: string;
+    startDate: string;
+    endDate: string;
+  }>;
 }
 
 export interface JobApplicationData {
@@ -49,7 +56,7 @@ export async function generateTailoredResume(
   const systemMessage = `You are an expert resume writer and career coach. You rewrite resumes and cover letters to match specific job descriptions, while staying truthful to the candidate's real experience. You always use clear, concise bullet points, measurable impact (metrics, percentages, time saved, etc.), and modern tech keywords where appropriate. Your style is recruiter-friendly and optimized for ATS.`;
 
   const userMessage = `I will give you:
-- My profile (personal info, skills, work experiences)
+- My profile (personal info, skills, work experiences, education)
 - A job description
 
 Using both, generate a tailored resume in this exact structure:
@@ -59,13 +66,16 @@ Using both, generate a tailored resume in this exact structure:
 
 2. Tailored Experiences
 For EACH experience in my profile, return:
-- Company, Title, Location, Dates (unchanged)
+- Company, Title, Location, Dates (unchanged from my profile)
 - Exactly 3 bullet points.
 
-Each bullet must:
-- Be an accomplishment, not just a responsibility
-- Include a metric or clear impact (%, time, speed, reliability, money, etc.) whenever possible
-- Use at least one relevant technology or concept from the job description when it makes sense (e.g. React, TypeScript, Vue, design sensibility, CRM, integrations, etc.)
+CRITICAL REQUIREMENTS FOR EACH BULLET:
+- Each bullet MUST be an accomplishment, NOT just a responsibility
+- Each bullet MUST include a specific metric or clear impact (%, time saved, speed improvement, reliability increase, money saved/earned, team size led, etc.)
+- Each bullet MUST incorporate at least one relevant technology, tool, or concept from the job description when it makes sense (e.g. React, TypeScript, Vue, Python, AWS, design sensibility, CRM, integrations, Agile, etc.)
+- Format: "Action verb + what you did + technology/tool used + quantifiable result"
+- Example good bullet: "Built a React-based dashboard with TypeScript that reduced customer support tickets by 40% and improved user retention by 25%"
+- Example bad bullet: "Responsible for building dashboards" (no metric, no impact, no technology alignment)
 
 3. Technologies from Job Description
 A single line: comma-separated list of technologies and tools found in the JD.
@@ -109,6 +119,15 @@ Responsibilities/Achievements:
 ${exp.responsibilities}
 `).join("\n")}
 
+Education:
+${profile.education.map((edu, i) => `
+Education ${i + 1}:
+School: ${edu.school}
+Degree: ${edu.degree}
+Field of Study: ${edu.field}
+Dates: ${edu.startDate} - ${edu.endDate}
+`).join("\n")}
+
 Here is the job description:
 ${jobApp.jobDescription}
 
@@ -142,6 +161,7 @@ Guidelines:
 - The tone should match this value: ${jobApp.tone}.
 - Highlight my most relevant experiences and tech skills for this job.
 - Mention 2–3 specific responsibilities or keywords from the job description to show alignment.
+- Reference my education if relevant to the role.
 - Keep it concise, professional, and ready to paste into an application form.
 - Return ONLY valid JSON with this structure: { "coverLetter": "Full cover letter text..." }
 
@@ -162,6 +182,15 @@ Location: ${exp.location}
 Dates: ${exp.startDate} - ${exp.endDate}
 Responsibilities/Achievements:
 ${exp.responsibilities}
+`).join("\n")}
+
+Education:
+${profile.education.map((edu, i) => `
+Education ${i + 1}:
+School: ${edu.school}
+Degree: ${edu.degree}
+Field of Study: ${edu.field}
+Dates: ${edu.startDate} - ${edu.endDate}
 `).join("\n")}
 
 Here is the job description:

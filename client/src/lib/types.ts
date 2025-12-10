@@ -8,6 +8,15 @@ export interface Experience {
   responsibilities: string;
 }
 
+export interface Education {
+  id: string;
+  school: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface Profile {
   firstName: string;
   lastName: string;
@@ -15,8 +24,9 @@ export interface Profile {
   phone: string;
   location: string;
   headline: string;
-  skills: string; // Comma separated
+  skills: string;
   experiences: Experience[];
+  education: Education[];
 }
 
 export interface JobApplication {

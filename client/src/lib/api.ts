@@ -1,8 +1,9 @@
 import { Profile, JobApplication, GeneratedResume, GeneratedCoverLetter } from "./types";
 
 interface ProfileResponse {
-  profile: Omit<Profile, "experiences">;
+  profile: Omit<Profile, "experiences" | "education">;
   experiences: Profile["experiences"];
+  education: Profile["education"];
 }
 
 export const api = {
@@ -13,11 +14,12 @@ export const api = {
     return {
       ...data.profile,
       experiences: data.experiences,
+      education: data.education || [],
     };
   },
 
   saveProfile: async (profile: Profile): Promise<Profile> => {
-    const { experiences, ...profileData } = profile;
+    const { experiences, education, ...profileData } = profile;
     
     const response = await fetch("/api/profile", {
       method: "POST",
@@ -25,6 +27,7 @@ export const api = {
       body: JSON.stringify({
         profile: profileData,
         experiences: experiences,
+        education: education,
       }),
     });
     
@@ -33,6 +36,7 @@ export const api = {
     return {
       ...data.profile,
       experiences: data.experiences,
+      education: data.education || [],
     };
   },
 
