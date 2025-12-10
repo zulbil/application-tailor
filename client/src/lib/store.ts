@@ -1,6 +1,6 @@
 import { Profile, JobApplication, GeneratedResume, GeneratedCoverLetter } from "./types";
 
-const STORAGE_KEY = "job-application-tailor-profile";
+const STORAGE_KEY = "applyforme-profile";
 
 const DEFAULT_PROFILE: Profile = {
   firstName: "",
