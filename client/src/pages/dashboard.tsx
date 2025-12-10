@@ -292,6 +292,7 @@ export default function DashboardPage() {
       company: app.company,
       jobTitle: app.jobTitle,
       jobDescription: app.jobDescription,
+      applicationId: app.id,
     }));
     setLocation("/application");
   };

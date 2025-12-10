@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Wand2, Copy, Check, FileText, FileUser } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
@@ -15,9 +16,11 @@ import { Separator } from "@/components/ui/separator";
 
 export default function JobApplicationPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isGeneratingResume, setIsGeneratingResume] = useState(false);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
+  const savedApplicationRef = useRef<string | null>(null);
   
   const [resume, setResume] = useState<GeneratedResume | null>(null);
   const [coverLetter, setCoverLetter] = useState<GeneratedCoverLetter | null>(null);
@@ -41,10 +44,29 @@ export default function JobApplicationPage() {
         if (data.company) form.setValue("companyName", data.company);
         if (data.jobTitle) form.setValue("jobTitle", data.jobTitle);
         if (data.jobDescription) form.setValue("jobDescription", data.jobDescription);
+        if (data.applicationId) savedApplicationRef.current = data.applicationId;
         sessionStorage.removeItem("prefillApplication");
       } catch (e) {}
     }
   }, []);
+
+  const saveApplication = async (data: JobApplicationInput) => {
+    if (savedApplicationRef.current) return;
+    
+    try {
+      const app = await api.createApplication({
+        company: data.companyName || "Unknown Company",
+        jobTitle: data.jobTitle || "Unknown Position",
+        jobDescription: data.jobDescription,
+        status: "created"
+      });
+      savedApplicationRef.current = app.id;
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["challenge"] });
+    } catch (e) {
+      console.error("Failed to save application:", e);
+    }
+  };
 
   const handleGenerateResume = async (data: JobApplicationInput) => {
     if (!profile) {
@@ -58,7 +80,8 @@ export default function JobApplicationPage() {
         throw new Error("Invalid response from AI. Please try again.");
       }
       setResume(result);
-      toast({ title: "Resume Generated", description: "Your tailored resume is ready." });
+      await saveApplication(data);
+      toast({ title: "Resume Generated", description: "Your tailored resume is ready and saved to your dashboard." });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to generate resume.", variant: "destructive" });
     } finally {
@@ -75,7 +98,8 @@ export default function JobApplicationPage() {
     try {
       const result = await api.generateCoverLetter(data);
       setCoverLetter(result);
-      toast({ title: "Cover Letter Generated", description: "Your tailored cover letter is ready." });
+      await saveApplication(data);
+      toast({ title: "Cover Letter Generated", description: "Your tailored cover letter is ready and saved to your dashboard." });
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to generate cover letter.", variant: "destructive" });
     } finally {
