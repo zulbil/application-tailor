@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, Loader2, Save } from "lucide-react";
-import { api } from "@/lib/store";
+import { api } from "@/lib/api";
 import { Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";

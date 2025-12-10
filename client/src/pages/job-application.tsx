@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Loader2, Wand2, Copy, Check, FileText, FileUser } from "lucide-react";
-import { api } from "@/lib/store";
+import { api } from "@/lib/api";
 import { JobApplication, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -36,28 +36,34 @@ export default function JobApplicationPage() {
   }, []);
 
   const handleGenerateResume = async (data: JobApplication) => {
-    if (!profile) return;
+    if (!profile) {
+      toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
+      return;
+    }
     setIsGeneratingResume(true);
     try {
-      const result = await api.generateResume(data, profile);
+      const result = await api.generateResume(data);
       setResume(result);
       toast({ title: "Resume Generated", description: "Your tailored resume is ready." });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to generate resume.", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to generate resume.", variant: "destructive" });
     } finally {
       setIsGeneratingResume(false);
     }
   };
 
   const handleGenerateCoverLetter = async (data: JobApplication) => {
-    if (!profile) return;
+    if (!profile) {
+      toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
+      return;
+    }
     setIsGeneratingCoverLetter(true);
     try {
-      const result = await api.generateCoverLetter(data, profile);
+      const result = await api.generateCoverLetter(data);
       setCoverLetter(result);
       toast({ title: "Cover Letter Generated", description: "Your tailored cover letter is ready." });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to generate cover letter.", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to generate cover letter.", variant: "destructive" });
     } finally {
       setIsGeneratingCoverLetter(false);
     }
