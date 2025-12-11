@@ -53,6 +53,7 @@ export interface IStorage {
   updateJobApplicationStatus(id: string, status: ApplicationStatus): Promise<JobApplication | null>;
   updateJobApplicationGeneratedContent(id: string, resume: any, coverLetter: string): Promise<JobApplication | null>;
   updateJobApplicationDetails(id: string, data: { company?: string; jobTitle?: string; jobDescription?: string }): Promise<JobApplication | null>;
+  updateJobApplicationSettings(id: string, settings: any): Promise<JobApplication | null>;
   deleteJobApplication(id: string): Promise<boolean>;
   
   getCurrentChallenge(profileId: string): Promise<{ challenge: WeeklyChallenge; progress: number; shouldRemind: boolean } | null>;
@@ -215,6 +216,21 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(jobApplications)
       .set(updateData)
+      .where(eq(jobApplications.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async updateJobApplicationSettings(id: string, settings: any): Promise<JobApplication | null> {
+    const existing = await this.getJobApplication(id);
+    if (!existing) return null;
+    
+    const currentSettings = (existing.resumeSettings as any) || {};
+    const mergedSettings = { ...currentSettings, ...settings };
+    
+    const [updated] = await db
+      .update(jobApplications)
+      .set({ resumeSettings: mergedSettings })
       .where(eq(jobApplications.id, id))
       .returning();
     return updated || null;

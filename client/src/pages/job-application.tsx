@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, Check, FileText, FileUser, Download } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical } from "lucide-react";
 import { api } from "@/lib/api";
-import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
+import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
+const defaultSettings: ResumeSettings = {
+  template: "modern",
+  primaryColor: "#0f766e",
+  fontFamily: "Inter",
+  sectionOrder: ["summary", "skills", "experience", "education"]
+};
 
 export default function JobApplicationPage() {
   const { toast } = useToast();
@@ -24,6 +33,10 @@ export default function JobApplicationPage() {
   
   const [resume, setResume] = useState<GeneratedResume | null>(null);
   const [coverLetter, setCoverLetter] = useState<GeneratedCoverLetter | null>(null);
+  const [templates, setTemplates] = useState<ResumeTemplatesResponse | null>(null);
+  const [settings, setSettings] = useState<ResumeSettings>(defaultSettings);
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -36,6 +49,7 @@ export default function JobApplicationPage() {
 
   useEffect(() => {
     api.getProfile().then(setProfile);
+    api.getResumeTemplates().then(setTemplates).catch(() => {});
     
     const prefill = sessionStorage.getItem("prefillApplication");
     if (prefill) {
@@ -53,12 +67,37 @@ export default function JobApplicationPage() {
             if (app.generatedCoverLetter) {
               setCoverLetter({ coverLetter: app.generatedCoverLetter });
             }
+            if (app.resumeSettings) {
+              setSettings({ ...defaultSettings, ...app.resumeSettings });
+            }
           }).catch(() => {});
         }
         sessionStorage.removeItem("prefillApplication");
       } catch (e) {}
     }
   }, []);
+
+  const updateSettings = async (newSettings: Partial<ResumeSettings>) => {
+    const updatedSettings = { ...settings, ...newSettings };
+    setSettings(updatedSettings);
+    setPreviewKey(prev => prev + 1);
+    
+    if (savedApplicationRef.current) {
+      try {
+        await api.updateResumeSettings(savedApplicationRef.current, newSettings);
+      } catch (e) {
+        console.error("Failed to save settings:", e);
+      }
+    }
+  };
+
+  const moveSection = (index: number, direction: "up" | "down") => {
+    const newOrder = [...settings.sectionOrder];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+    updateSettings({ sectionOrder: newOrder });
+  };
 
   const saveApplication = async (data: JobApplicationInput) => {
     if (savedApplicationRef.current) return;
@@ -281,12 +320,134 @@ export default function JobApplicationPage() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex justify-end mb-2">
-                  <Button variant="outline" size="sm" onClick={downloadResume} data-testid="button-download-resume">
-                    <Download className="size-4 mr-2" />
-                    Download Resume
-                  </Button>
+                <div className="flex justify-between items-center mb-2">
+                  <Dialog open={showCustomize} onOpenChange={setShowCustomize}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-customize-resume">
+                        <Settings2 className="size-4 mr-2" />
+                        Customize Design
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Customize Resume Design</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-6 py-4">
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Template</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            {(templates?.templates || []).map(t => (
+                              <div
+                                key={t.id}
+                                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${settings.template === t.id ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"}`}
+                                onClick={() => updateSettings({ template: t.id as any })}
+                                data-testid={`template-${t.id}`}
+                              >
+                                <div className="font-medium">{t.name}</div>
+                                <div className="text-xs text-muted-foreground">{t.description}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Accent Color</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {(templates?.colors || []).map(c => (
+                              <button
+                                key={c.id}
+                                className={`w-10 h-10 rounded-full border-2 transition-all ${settings.primaryColor === c.id ? "ring-2 ring-offset-2 ring-primary" : ""}`}
+                                style={{ backgroundColor: c.id }}
+                                onClick={() => updateSettings({ primaryColor: c.id })}
+                                title={c.name}
+                                data-testid={`color-${c.name.toLowerCase()}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Font Family</Label>
+                          <Select value={settings.fontFamily} onValueChange={(v) => updateSettings({ fontFamily: v })}>
+                            <SelectTrigger data-testid="select-font">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(templates?.fonts || []).map(f => (
+                                <SelectItem key={f.id} value={f.id}>{f.name} ({f.category})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Section Order</Label>
+                          <p className="text-sm text-muted-foreground">Drag to reorder sections on your resume</p>
+                          <div className="space-y-2">
+                            {settings.sectionOrder.map((section, i) => (
+                              <div key={section} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                                <GripVertical className="size-4 text-muted-foreground" />
+                                <span className="flex-1 capitalize">{section}</span>
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="sm" disabled={i === 0} onClick={() => moveSection(i, "up")}>↑</Button>
+                                  <Button variant="ghost" size="sm" disabled={i === settings.sectionOrder.length - 1} onClick={() => moveSection(i, "down")}>↓</Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-download-resume">
+                        <FileDown className="size-4 mr-2" />
+                        Download
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => savedApplicationRef.current && window.open(api.getResumePdfUrl(savedApplicationRef.current), "_blank")}>
+                        <FileText className="size-4 mr-2" />
+                        Download PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => savedApplicationRef.current && window.open(api.getResumeDocxUrl(savedApplicationRef.current), "_blank")}>
+                        <FileUser className="size-4 mr-2" />
+                        Download Word (.docx)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={downloadResume}>
+                        <Download className="size-4 mr-2" />
+                        Download Text
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+
+                {savedApplicationRef.current && (
+                  <Card className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Palette className="size-4" />
+                        Resume Preview
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <iframe
+                        key={previewKey}
+                        src={api.getResumePreviewUrl(savedApplicationRef.current)}
+                        className="w-full h-[500px] border-t"
+                        title="Resume Preview"
+                      />
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">

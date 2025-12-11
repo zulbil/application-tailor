@@ -62,8 +62,18 @@ export async function generateTailoredResume(
 
 Using both, generate a tailored resume in this exact structure:
 
-1. Updated Logline
-3 short bullets that summarize me for this role.
+1. Impact Logline (Professional Summary)
+Create exactly 3 powerful bullets that represent the STRONGEST moments of my career that best match this job description. Each bullet must:
+- Highlight a specific career achievement with measurable impact
+- Draw from my actual work experience (do not invent achievements)
+- Emphasize results using metrics (%, $, time saved, team size, scale, etc.)
+- Align closely with what the target job is looking for
+- Be concise but compelling (1-2 sentences max)
+
+Example good logline bullets:
+- "Led a team of 12 engineers to deliver a $5M e-commerce platform, increasing revenue by 35% in first quarter"
+- "Reduced infrastructure costs by 60% through strategic migration to cloud architecture, saving $200K annually"
+- "Architected real-time data pipeline processing 10M+ events daily with 99.9% uptime"
 
 2. Tailored Experiences
 For EACH experience in my profile, return:

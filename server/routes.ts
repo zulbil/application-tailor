@@ -6,6 +6,7 @@ import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTailoredResume, generateCoverLetter } from "./openai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
 
 const saveProfileSchema = z.object({
   profile: insertProfileSchema,
@@ -34,6 +35,13 @@ const updateStatusSchema = z.object({
 
 const challengeSchema = z.object({
   goalCount: z.number().int().min(1).max(100),
+});
+
+const resumeSettingsSchema = z.object({
+  template: z.enum(["modern", "classic", "minimal", "creative"]).optional(),
+  primaryColor: z.string().optional(),
+  fontFamily: z.string().optional(),
+  sectionOrder: z.array(z.string()).optional(),
 });
 
 const createApplicationSchema = z.object({
@@ -510,6 +518,179 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error acknowledging reminder:", error);
       return res.status(500).json({ error: "Failed to acknowledge reminder" });
+    }
+  });
+
+  app.get("/api/resume-templates", isAuthenticated, async (req, res) => {
+    return res.json({
+      templates: resumeTemplates,
+      fonts: fontOptions,
+      colors: colorOptions
+    });
+  });
+
+  app.patch("/api/applications/:id/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const validation = resumeSettingsSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        const errorMessage = fromZodError(validation.error).message;
+        return res.status(400).json({ error: errorMessage });
+      }
+
+      const updated = await storage.updateJobApplicationSettings(req.params.id, validation.data);
+      if (!updated) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating resume settings:", error);
+      return res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  app.get("/api/applications/:id/resume.pdf", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      if (!profileData) {
+        return res.status(400).json({ error: "Profile required" });
+      }
+
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application || !application.generatedResume) {
+        return res.status(404).json({ error: "Resume not found. Generate one first." });
+      }
+
+      const resumeData = application.generatedResume as any;
+      const settings = (application.resumeSettings as ResumeSettings) || {};
+
+      const data: ResumeData = {
+        profile: {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline
+        },
+        logline: resumeData.logline || [],
+        experiences: resumeData.experiences || [],
+        education: profileData.education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        technologies: resumeData.technologies || "",
+        relevantSkills: resumeData.relevantSkills || []
+      };
+
+      const pdf = await generateResumePDF(data, settings);
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="Resume_${application.company.replace(/\s+/g, "_")}.pdf"`);
+      return res.send(pdf);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      return res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  app.get("/api/applications/:id/resume.docx", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      if (!profileData) {
+        return res.status(400).json({ error: "Profile required" });
+      }
+
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application || !application.generatedResume) {
+        return res.status(404).json({ error: "Resume not found. Generate one first." });
+      }
+
+      const resumeData = application.generatedResume as any;
+      const settings = (application.resumeSettings as ResumeSettings) || {};
+
+      const data: ResumeData = {
+        profile: {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline
+        },
+        logline: resumeData.logline || [],
+        experiences: resumeData.experiences || [],
+        education: profileData.education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        technologies: resumeData.technologies || "",
+        relevantSkills: resumeData.relevantSkills || []
+      };
+
+      const docx = await generateResumeDOCX(data, settings);
+      
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="Resume_${application.company.replace(/\s+/g, "_")}.docx"`);
+      return res.send(docx);
+    } catch (error) {
+      console.error("Error generating DOCX:", error);
+      return res.status(500).json({ error: "Failed to generate DOCX" });
+    }
+  });
+
+  app.get("/api/applications/:id/resume-preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      if (!profileData) {
+        return res.status(400).json({ error: "Profile required" });
+      }
+
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application || !application.generatedResume) {
+        return res.status(404).json({ error: "Resume not found. Generate one first." });
+      }
+
+      const resumeData = application.generatedResume as any;
+      const settings = (application.resumeSettings as ResumeSettings) || {};
+
+      const data: ResumeData = {
+        profile: {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline
+        },
+        logline: resumeData.logline || [],
+        experiences: resumeData.experiences || [],
+        education: profileData.education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        technologies: resumeData.technologies || "",
+        relevantSkills: resumeData.relevantSkills || []
+      };
+
+      const html = generateResumeHTML(data, settings);
+      res.setHeader("Content-Type", "text/html");
+      return res.send(html);
+    } catch (error) {
+      console.error("Error generating preview:", error);
+      return res.status(500).json({ error: "Failed to generate preview" });
     }
   });
 

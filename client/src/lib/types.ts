@@ -56,6 +56,13 @@ export interface GeneratedCoverLetter {
 
 export type ApplicationStatus = "created" | "applied" | "interviewing" | "rejected" | "offered";
 
+export interface ResumeSettings {
+  template: "modern" | "classic" | "minimal" | "creative";
+  primaryColor: string;
+  fontFamily: string;
+  sectionOrder: string[];
+}
+
 export interface TrackedApplication {
   id: string;
   profileId: string;
@@ -65,8 +72,32 @@ export interface TrackedApplication {
   status: ApplicationStatus;
   generatedResume?: GeneratedResume | null;
   generatedCoverLetter?: string | null;
+  resumeSettings?: ResumeSettings | null;
   createdAt: string;
   statusUpdatedAt: string;
+}
+
+export interface ResumeTemplateInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface FontOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+export interface ColorOption {
+  id: string;
+  name: string;
+}
+
+export interface ResumeTemplatesResponse {
+  templates: ResumeTemplateInfo[];
+  fonts: FontOption[];
+  colors: ColorOption[];
 }
 
 export interface WeeklyChallenge {

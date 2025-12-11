@@ -1,4 +1,4 @@
-import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus } from "./types";
+import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse } from "./types";
 
 interface ProfileResponse {
   profile: Omit<Profile, "experiences" | "education">;
@@ -174,5 +174,38 @@ export const api = {
       const error = await response.json();
       throw new Error(error.error || "Failed to acknowledge reminder");
     }
+  },
+
+  getResumeTemplates: async (): Promise<ResumeTemplatesResponse> => {
+    const response = await fetch("/api/resume-templates");
+    if (!response.ok) throw new Error("Failed to fetch templates");
+    return response.json();
+  },
+
+  updateResumeSettings: async (id: string, settings: Partial<ResumeSettings>): Promise<TrackedApplication> => {
+    const response = await fetch(`/api/applications/${id}/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to update settings");
+    }
+    
+    return response.json();
+  },
+
+  getResumePreviewUrl: (id: string): string => {
+    return `/api/applications/${id}/resume-preview`;
+  },
+
+  getResumePdfUrl: (id: string): string => {
+    return `/api/applications/${id}/resume.pdf`;
+  },
+
+  getResumeDocxUrl: (id: string): string => {
+    return `/api/applications/${id}/resume.docx`;
   },
 };
