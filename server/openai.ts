@@ -99,7 +99,7 @@ d) Every bullet MUST include:
    - An action verb (e.g., Built, Led, Developed, Implemented, Designed, Optimized)
    - A measurable impact with specific numbers
    - A relevant technology or concept from the job description (when appropriate)
-e) LENGTH LIMIT: Each bullet must be concise - maximum 2-3 lines, around 15-25 words. No long paragraphs.
+e) LENGTH LIMIT: Each bullet must be ONE complete sentence on ONE line. Maximum 15-25 words. No multi-line or wrapped bullets.
 f) Format: "Action verb + what you did + technology/tool + specific measurable result"
 g) GOOD examples:
    - "Built React dashboard with TypeScript, reducing support tickets by 40%"
@@ -109,6 +109,14 @@ g) GOOD examples:
 h) BAD examples (do NOT write like this):
    - "Responsible for building dashboards" (no metric, too vague)
    - "Worked on various projects using React and TypeScript to improve the user experience across multiple features" (too long, no specific metric)
+
+PDF-READY FORMATTING RULES:
+- Use simple plain text only - no emojis, no unusual unicode characters
+- No special bullet symbols (no •, →, ►) - the app will add formatting
+- No bold, italic, or other formatting inside bullet text
+- Each bullet must be a single complete sentence (no line breaks within bullets)
+- Keep all text short and spaced - no paragraphs longer than 2 lines
+- No HTML, tables, or markdown in the bullet content itself
 
 If a key responsibility is important but not clearly demonstrated by any existing bullet, you may rephrase or expand my existing information — but NEVER invent experience I do not have.
 
