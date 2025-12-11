@@ -56,12 +56,18 @@ export interface GeneratedCoverLetter {
 
 export type ApplicationStatus = "created" | "applied" | "interviewing" | "rejected" | "offered";
 
+export interface SectionPreferences {
+  title: string;
+  hidden: boolean;
+}
+
 export interface ResumeSettings {
   template: "modern" | "classic" | "minimal" | "creative";
   primaryColor: string;
   fontFamily: string;
   fontSize: "small" | "medium" | "large";
   sectionOrder: string[];
+  sectionPreferences: Record<string, SectionPreferences>;
 }
 
 export interface TrackedApplication {

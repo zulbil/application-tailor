@@ -37,12 +37,18 @@ const challengeSchema = z.object({
   goalCount: z.number().int().min(1).max(100),
 });
 
+const sectionPreferencesSchema = z.object({
+  title: z.string(),
+  hidden: z.boolean()
+});
+
 const resumeSettingsSchema = z.object({
   template: z.enum(["modern", "classic", "minimal", "creative"]).optional(),
   primaryColor: z.string().optional(),
   fontFamily: z.string().optional(),
   fontSize: z.enum(["small", "medium", "large"]).optional(),
   sectionOrder: z.array(z.string()).optional(),
+  sectionPreferences: z.record(sectionPreferencesSchema).optional(),
 });
 
 const createApplicationSchema = z.object({

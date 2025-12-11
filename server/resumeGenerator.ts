@@ -30,20 +30,34 @@ export interface ResumeData {
   relevantSkills: string[];
 }
 
+export interface SectionPreferences {
+  title: string;
+  hidden: boolean;
+}
+
 export interface ResumeSettings {
   template: "modern" | "classic" | "minimal" | "creative";
   primaryColor: string;
   fontFamily: string;
   fontSize: "small" | "medium" | "large";
   sectionOrder: string[];
+  sectionPreferences: Record<string, SectionPreferences>;
 }
+
+const defaultSectionPreferences: Record<string, SectionPreferences> = {
+  summary: { title: "", hidden: false },
+  skills: { title: "Skills", hidden: false },
+  experience: { title: "Experience", hidden: false },
+  education: { title: "Education", hidden: false }
+};
 
 const defaultSettings: ResumeSettings = {
   template: "modern",
   primaryColor: "#0f766e",
   fontFamily: "Inter",
   fontSize: "medium",
-  sectionOrder: ["summary", "skills", "experience", "education"]
+  sectionOrder: ["summary", "skills", "experience", "education"],
+  sectionPreferences: defaultSectionPreferences
 };
 
 const fontSizeMap: Record<string, { body: string; heading: string; title: string; small: string }> = {
