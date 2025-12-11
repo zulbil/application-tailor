@@ -297,7 +297,11 @@ export default function JobApplicationPage() {
 
   const startEditingExperience = () => {
     if (resume) {
-      setEditedExperiences([...resume.experiences]);
+      const deepClone = resume.experiences.map(exp => ({
+        ...exp,
+        bullets: [...exp.bullets]
+      }));
+      setEditedExperiences(deepClone);
       setIsEditingExperience(true);
     }
   };
@@ -323,33 +327,37 @@ export default function JobApplicationPage() {
   };
 
   const updateExperienceField = (index: number, field: string, value: string) => {
-    const updated = [...editedExperiences];
-    (updated[index] as any)[field] = value;
-    setEditedExperiences(updated);
+    setEditedExperiences(prev => prev.map((exp, i) => 
+      i === index ? { ...exp, [field]: value } : exp
+    ));
   };
 
   const updateExperienceBullet = (expIndex: number, bulletIndex: number, value: string) => {
-    const updated = [...editedExperiences];
-    updated[expIndex].bullets[bulletIndex] = value;
-    setEditedExperiences(updated);
+    setEditedExperiences(prev => prev.map((exp, i) => 
+      i === expIndex 
+        ? { ...exp, bullets: exp.bullets.map((b, j) => j === bulletIndex ? value : b) }
+        : exp
+    ));
   };
 
   const addExperienceBullet = (expIndex: number) => {
-    const updated = [...editedExperiences];
-    updated[expIndex].bullets.push("");
-    setEditedExperiences(updated);
+    setEditedExperiences(prev => prev.map((exp, i) => 
+      i === expIndex 
+        ? { ...exp, bullets: [...exp.bullets, ""] }
+        : exp
+    ));
   };
 
   const removeExperienceBullet = (expIndex: number, bulletIndex: number) => {
-    const updated = [...editedExperiences];
-    updated[expIndex].bullets.splice(bulletIndex, 1);
-    setEditedExperiences(updated);
+    setEditedExperiences(prev => prev.map((exp, i) => 
+      i === expIndex 
+        ? { ...exp, bullets: exp.bullets.filter((_, j) => j !== bulletIndex) }
+        : exp
+    ));
   };
 
   const removeExperience = (index: number) => {
-    const updated = [...editedExperiences];
-    updated.splice(index, 1);
-    setEditedExperiences(updated);
+    setEditedExperiences(prev => prev.filter((_, i) => i !== index));
   };
 
   const saveApplication = async (data: JobApplicationInput) => {
