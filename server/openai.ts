@@ -82,8 +82,8 @@ Example good logline bullets:
 
 2. Tailored Experiences
 For EACH experience in my profile, return:
-- Company, Title, Location, Dates (unchanged from my profile)
-- Exactly 3 bullet points
+- Company, Title, Location, Dates (unchanged from my profile - do NOT modify these fields)
+- Exactly 3 bullet points that demonstrate skills relevant to the TARGET JOB TITLE provided below
 
 CRITICAL BULLET POINT RULES:
 a) Every bullet must implicitly answer: "Does this bullet prove the candidate can perform one or more of the KEY RESPONSIBILITIES?"

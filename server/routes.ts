@@ -687,6 +687,119 @@ export async function registerRoutes(
     }
   });
 
+  // Export profile experience directly (without AI tailoring)
+  app.get("/api/profile/export.pdf", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      if (!profileData) {
+        return res.status(400).json({ error: "Profile required" });
+      }
+
+      const data: ResumeData = {
+        profile: {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline
+        },
+        logline: [],
+        experiences: profileData.experiences.map(exp => ({
+          company: exp.company,
+          title: exp.title,
+          location: exp.location,
+          start: exp.startDate,
+          end: exp.endDate,
+          bullets: exp.responsibilities.split('\n').filter(b => b.trim())
+        })),
+        education: profileData.education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        technologies: profileData.profile.skills,
+        relevantSkills: profileData.profile.skills.split(',').map(s => s.trim()).filter(Boolean)
+      };
+
+      const defaultSettings: ResumeSettings = {
+        template: "modern",
+        primaryColor: "#059669",
+        fontFamily: "Inter",
+        fontSize: "medium",
+        sectionOrder: ["skills", "experience", "education"],
+        sectionPreferences: {}
+      };
+      const pdf = await generateResumePDF(data, defaultSettings);
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="Profile_${profileData.profile.firstName}_${profileData.profile.lastName}.pdf"`);
+      return res.send(pdf);
+    } catch (error) {
+      console.error("Error exporting profile PDF:", error);
+      return res.status(500).json({ error: "Failed to export profile" });
+    }
+  });
+
+  app.get("/api/profile/export.docx", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      if (!profileData) {
+        return res.status(400).json({ error: "Profile required" });
+      }
+
+      const data: ResumeData = {
+        profile: {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline
+        },
+        logline: [],
+        experiences: profileData.experiences.map(exp => ({
+          company: exp.company,
+          title: exp.title,
+          location: exp.location,
+          start: exp.startDate,
+          end: exp.endDate,
+          bullets: exp.responsibilities.split('\n').filter(b => b.trim())
+        })),
+        education: profileData.education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.endDate
+        })),
+        technologies: profileData.profile.skills,
+        relevantSkills: profileData.profile.skills.split(',').map(s => s.trim()).filter(Boolean)
+      };
+
+      const defaultSettings: ResumeSettings = {
+        template: "modern",
+        primaryColor: "#059669",
+        fontFamily: "Inter",
+        fontSize: "medium",
+        sectionOrder: ["skills", "experience", "education"],
+        sectionPreferences: {}
+      };
+      const docx = await generateResumeDOCX(data, defaultSettings);
+      
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="Profile_${profileData.profile.firstName}_${profileData.profile.lastName}.docx"`);
+      return res.send(docx);
+    } catch (error) {
+      console.error("Error exporting profile DOCX:", error);
+      return res.status(500).json({ error: "Failed to export profile" });
+    }
+  });
+
   app.get("/api/applications/:id/resume-preview", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

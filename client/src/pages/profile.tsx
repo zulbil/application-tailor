@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, Loader2, Save, GraduationCap, Briefcase } from "lucide-react";
+import { Plus, Trash2, Loader2, Save, GraduationCap, Briefcase, Download, FileText } from "lucide-react";
 import { api } from "@/lib/api";
 import { Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -84,11 +84,31 @@ export default function ProfilePage() {
     );
   }
 
+  const handleExportPDF = () => {
+    window.open("/api/profile/export.pdf", "_blank");
+  };
+
+  const handleExportDOCX = () => {
+    window.open("/api/profile/export.docx", "_blank");
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-serif font-bold text-foreground">Your Profile</h1>
-        <p className="text-muted-foreground">Manage your personal information, work history, and education to generate tailored applications.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-serif font-bold text-foreground">Your Profile</h1>
+          <p className="text-muted-foreground">Manage your personal information, work history, and education to generate tailored applications.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="button-export-pdf">
+            <Download className="size-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportDOCX} data-testid="button-export-docx">
+            <FileText className="size-4 mr-2" />
+            Export DOCX
+          </Button>
+        </div>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
