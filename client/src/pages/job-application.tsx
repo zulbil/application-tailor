@@ -15,6 +15,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortableSectionItem({ id }: { id: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-grab active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="size-4 text-muted-foreground" />
+      <span className="flex-1 capitalize">{id}</span>
+    </div>
+  );
+}
 
 const defaultSettings: ResumeSettings = {
   template: "modern",
@@ -91,12 +115,19 @@ export default function JobApplicationPage() {
     }
   };
 
-  const moveSection = (index: number, direction: "up" | "down") => {
-    const newOrder = [...settings.sectionOrder];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
-    [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-    updateSettings({ sectionOrder: newOrder });
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = settings.sectionOrder.indexOf(active.id as string);
+      const newIndex = settings.sectionOrder.indexOf(over.id as string);
+      const newOrder = arrayMove(settings.sectionOrder, oldIndex, newIndex);
+      updateSettings({ sectionOrder: newOrder });
+    }
   };
 
   const saveApplication = async (data: JobApplicationInput) => {
@@ -389,18 +420,15 @@ export default function JobApplicationPage() {
                         <div className="space-y-3">
                           <Label className="text-base font-semibold">Section Order</Label>
                           <p className="text-sm text-muted-foreground">Drag to reorder sections on your resume</p>
-                          <div className="space-y-2">
-                            {settings.sectionOrder.map((section, i) => (
-                              <div key={section} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                                <GripVertical className="size-4 text-muted-foreground" />
-                                <span className="flex-1 capitalize">{section}</span>
-                                <div className="flex gap-1">
-                                  <Button variant="ghost" size="sm" disabled={i === 0} onClick={() => moveSection(i, "up")}>↑</Button>
-                                  <Button variant="ghost" size="sm" disabled={i === settings.sectionOrder.length - 1} onClick={() => moveSection(i, "down")}>↓</Button>
-                                </div>
+                          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                            <SortableContext items={settings.sectionOrder} strategy={verticalListSortingStrategy}>
+                              <div className="space-y-2">
+                                {settings.sectionOrder.map((section) => (
+                                  <SortableSectionItem key={section} id={section} />
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                            </SortableContext>
+                          </DndContext>
                         </div>
                       </div>
                     </DialogContent>
