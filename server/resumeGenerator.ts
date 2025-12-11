@@ -79,25 +79,34 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
   const font = fontFamilies[settings.fontFamily] || fontFamilies["Inter"];
   const color = settings.primaryColor || "#0f766e";
   const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
+  const prefs = { ...defaultSectionPreferences, ...settings.sectionPreferences };
+  
+  const getSectionTitle = (key: string, defaultTitle: string) => {
+    const pref = prefs[key];
+    if (!pref) return defaultTitle;
+    return pref.title !== undefined ? pref.title : defaultTitle;
+  };
+  
+  const isHidden = (key: string) => prefs[key]?.hidden === true;
   
   const sections: Record<string, string> = {
-    summary: `
+    summary: isHidden("summary") ? "" : `
       <section class="section">
-        <h2>Professional Summary</h2>
+        ${getSectionTitle("summary", "") ? `<h2>${getSectionTitle("summary", "")}</h2>` : ""}
         <ul class="summary-list">
           ${data.logline.map(line => `<li>${line}</li>`).join("")}
         </ul>
       </section>
     `,
-    skills: `
+    skills: isHidden("skills") ? "" : `
       <section class="section">
-        <h2>Skills</h2>
+        ${getSectionTitle("skills", "Skills") ? `<h2>${getSectionTitle("skills", "Skills")}</h2>` : ""}
         <p class="skills">${data.relevantSkills?.join(" • ") || data.technologies}</p>
       </section>
     `,
-    experience: `
+    experience: isHidden("experience") ? "" : `
       <section class="section">
-        <h2>Experience</h2>
+        ${getSectionTitle("experience", "Experience") ? `<h2>${getSectionTitle("experience", "Experience")}</h2>` : ""}
         ${data.experiences.map(exp => `
           <div class="experience">
             <div class="exp-header">
@@ -115,9 +124,9 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
         `).join("")}
       </section>
     `,
-    education: `
+    education: isHidden("education") ? "" : `
       <section class="section">
-        <h2>Education</h2>
+        ${getSectionTitle("education", "Education") ? `<h2>${getSectionTitle("education", "Education")}</h2>` : ""}
         ${data.education.map(edu => `
           <div class="education">
             <div class="edu-header">
@@ -132,6 +141,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
   };
 
   const orderedSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .filter(key => !isHidden(key))
     .map(key => sections[key] || "")
     .join("");
 
@@ -250,23 +260,32 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
 function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string {
   const font = "'Times New Roman', serif";
   const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
+  const prefs = { ...defaultSectionPreferences, ...settings.sectionPreferences };
+  
+  const getSectionTitle = (key: string, defaultTitle: string) => {
+    const pref = prefs[key];
+    if (!pref) return defaultTitle;
+    return pref.title !== undefined ? pref.title : defaultTitle;
+  };
+  
+  const isHidden = (key: string) => prefs[key]?.hidden === true;
   
   const sections: Record<string, string> = {
-    summary: `
+    summary: isHidden("summary") ? "" : `
       <section class="section">
-        <h2>Summary</h2>
+        ${getSectionTitle("summary", "") ? `<h2>${getSectionTitle("summary", "")}</h2>` : ""}
         <ul>${data.logline.map(l => `<li>${l}</li>`).join("")}</ul>
       </section>
     `,
-    skills: `
+    skills: isHidden("skills") ? "" : `
       <section class="section">
-        <h2>Skills</h2>
+        ${getSectionTitle("skills", "Skills") ? `<h2>${getSectionTitle("skills", "Skills")}</h2>` : ""}
         <p class="skills">${data.relevantSkills?.join(", ") || data.technologies}</p>
       </section>
     `,
-    experience: `
+    experience: isHidden("experience") ? "" : `
       <section class="section">
-        <h2>Experience</h2>
+        ${getSectionTitle("experience", "Experience") ? `<h2>${getSectionTitle("experience", "Experience")}</h2>` : ""}
         ${data.experiences.map(exp => `
           <div class="experience">
             <div class="exp-header">
@@ -279,9 +298,9 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
         `).join("")}
       </section>
     `,
-    education: `
+    education: isHidden("education") ? "" : `
       <section class="section">
-        <h2>Education</h2>
+        ${getSectionTitle("education", "Education") ? `<h2>${getSectionTitle("education", "Education")}</h2>` : ""}
         ${data.education.map(edu => `
           <div class="education">
             <strong>${edu.degree} in ${edu.field}</strong>, ${edu.school} (${edu.startDate} - ${edu.endDate})
@@ -292,6 +311,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
   };
 
   const orderedSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .filter(key => !isHidden(key))
     .map(key => sections[key] || "")
     .join("");
   
@@ -361,23 +381,32 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
 function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#374151";
   const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
+  const prefs = { ...defaultSectionPreferences, ...settings.sectionPreferences };
+  
+  const getSectionTitle = (key: string, defaultTitle: string) => {
+    const pref = prefs[key];
+    if (!pref) return defaultTitle;
+    return pref.title !== undefined ? pref.title : defaultTitle;
+  };
+  
+  const isHidden = (key: string) => prefs[key]?.hidden === true;
   
   const sections: Record<string, string> = {
-    summary: `
+    summary: isHidden("summary") ? "" : `
       <section class="section">
-        <h2>Summary</h2>
+        ${getSectionTitle("summary", "") ? `<h2>${getSectionTitle("summary", "")}</h2>` : ""}
         <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>• ${l}</li>`).join("")}</ul>
       </section>
     `,
-    skills: `
+    skills: isHidden("skills") ? "" : `
       <section class="section">
-        <h2>Skills</h2>
+        ${getSectionTitle("skills", "Skills") ? `<h2>${getSectionTitle("skills", "Skills")}</h2>` : ""}
         <p class="skills">${data.relevantSkills?.join(" · ") || data.technologies}</p>
       </section>
     `,
-    experience: `
+    experience: isHidden("experience") ? "" : `
       <section class="section">
-        <h2>Experience</h2>
+        ${getSectionTitle("experience", "Experience") ? `<h2>${getSectionTitle("experience", "Experience")}</h2>` : ""}
         ${data.experiences.map(exp => `
           <div class="experience">
             <div class="exp-title">${exp.title} at ${exp.company}</div>
@@ -387,15 +416,16 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
         `).join("")}
       </section>
     `,
-    education: `
+    education: isHidden("education") ? "" : `
       <section class="section">
-        <h2>Education</h2>
+        ${getSectionTitle("education", "Education") ? `<h2>${getSectionTitle("education", "Education")}</h2>` : ""}
         ${data.education.map(edu => `<div>${edu.degree} in ${edu.field}, ${edu.school}</div>`).join("")}
       </section>
     `
   };
 
   const orderedSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .filter(key => !isHidden(key))
     .map(key => sections[key] || "")
     .join("");
   
@@ -456,17 +486,26 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
 function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#7c3aed";
   const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
+  const prefs = { ...defaultSectionPreferences, ...settings.sectionPreferences };
+  
+  const getSectionTitle = (key: string, defaultTitle: string) => {
+    const pref = prefs[key];
+    if (!pref) return defaultTitle;
+    return pref.title !== undefined ? pref.title : defaultTitle;
+  };
+  
+  const isHidden = (key: string) => prefs[key]?.hidden === true;
   
   const mainSections: Record<string, string> = {
-    summary: `
+    summary: isHidden("summary") ? "" : `
       <section class="section">
-        <h2>Professional Summary</h2>
+        ${getSectionTitle("summary", "") ? `<h2>${getSectionTitle("summary", "")}</h2>` : ""}
         <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>▹ ${l}</li>`).join("")}</ul>
       </section>
     `,
-    experience: `
+    experience: isHidden("experience") ? "" : `
       <section class="section">
-        <h2>Experience</h2>
+        ${getSectionTitle("experience", "Experience") ? `<h2>${getSectionTitle("experience", "Experience")}</h2>` : ""}
         ${data.experiences.map(exp => `
           <div class="experience">
             <div class="exp-header">
@@ -479,15 +518,15 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
         `).join("")}
       </section>
     `,
-    skills: `
+    skills: isHidden("skills") ? "" : `
       <section class="section main-skills">
-        <h2>Technical Skills</h2>
+        ${getSectionTitle("skills", "Technical Skills") ? `<h2>${getSectionTitle("skills", "Technical Skills")}</h2>` : ""}
         <p>${data.relevantSkills?.join(" • ") || data.technologies}</p>
       </section>
     `,
-    education: `
+    education: isHidden("education") ? "" : `
       <section class="section">
-        <h2>Education</h2>
+        ${getSectionTitle("education", "Education") ? `<h2>${getSectionTitle("education", "Education")}</h2>` : ""}
         ${data.education.map(edu => `
           <div class="edu-item">
             <strong>${edu.degree} in ${edu.field}</strong>
@@ -499,6 +538,7 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
   };
 
   const orderedMainSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .filter(key => !isHidden(key))
     .map(key => mainSections[key] || "")
     .join("");
   
