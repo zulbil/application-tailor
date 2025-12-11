@@ -52,6 +52,7 @@ export async function generateTailoredResume(
     bullets: string[];
   }>;
   technologies: string;
+  relevantSkills: string[];
 }> {
   const systemMessage = `You are an expert resume writer and career coach. You rewrite resumes and cover letters to match specific job descriptions, while staying truthful to the candidate's real experience. You always use clear, concise bullet points, measurable impact (metrics, percentages, time saved, etc.), and modern tech keywords where appropriate. Your style is recruiter-friendly and optimized for ATS.`;
 
@@ -80,6 +81,12 @@ CRITICAL REQUIREMENTS FOR EACH BULLET:
 3. Technologies from Job Description
 A single line: comma-separated list of technologies and tools found in the JD.
 
+4. Relevant Skills for Resume
+An array of 8-12 key skills/technologies that should appear on the resume's skills section. These should be:
+- Skills from the job description that match what the candidate actually has
+- Ordered by relevance to this specific job (most important first)
+- A mix of technical skills, tools, and soft skills mentioned in the JD
+
 Requirements:
 - Do not invent technologies I don't have; only map what I already have to the JD.
 - Do not change my job titles, company names, or dates.
@@ -97,7 +104,8 @@ Requirements:
       "bullets": ["...", "...", "..."]
     }
   ],
-  "technologies": "React, TypeScript, Vue, ..."
+  "technologies": "React, TypeScript, Vue, ...",
+  "relevantSkills": ["React", "TypeScript", "Node.js", "AWS", "REST APIs", "Agile", "Git", "PostgreSQL"]
 }
 
 Here is my profile:
@@ -165,6 +173,9 @@ ${jobApp.companyName ? `Target Company: ${jobApp.companyName}` : ""}`;
   }
   if (!parsed.technologies) {
     parsed.technologies = "";
+  }
+  if (!parsed.relevantSkills || !Array.isArray(parsed.relevantSkills)) {
+    parsed.relevantSkills = [];
   }
   
   return parsed;
