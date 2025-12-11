@@ -803,13 +803,11 @@ export const fontOptions = [
 ];
 
 export const colorOptions = [
-  { id: "#0f766e", name: "Teal" },
-  { id: "#1d4ed8", name: "Blue" },
-  { id: "#7c3aed", name: "Purple" },
-  { id: "#dc2626", name: "Red" },
   { id: "#059669", name: "Green" },
-  { id: "#374151", name: "Gray" },
-  { id: "#000000", name: "Black" }
+  { id: "#1e3a5f", name: "Navy Blue" },
+  { id: "#000000", name: "Black" },
+  { id: "#6b7280", name: "Grey" },
+  { id: "#78350f", name: "Brown" }
 ];
 
 export const fontSizeOptions = [

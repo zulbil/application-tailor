@@ -108,7 +108,7 @@ function SortableSectionItem({ id, prefs, onUpdatePrefs }: SortableSectionItemPr
 
 const defaultSettings: ResumeSettings = {
   template: "modern",
-  primaryColor: "#0f766e",
+  primaryColor: "#059669",
   fontFamily: "Inter",
   fontSize: "medium",
   sectionOrder: ["summary", "skills", "experience", "education"],
