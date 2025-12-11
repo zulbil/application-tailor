@@ -88,15 +88,27 @@ For EACH experience in my profile, return:
 CRITICAL BULLET POINT RULES:
 a) Every bullet must implicitly answer: "Does this bullet prove the candidate can perform one or more of the KEY RESPONSIBILITIES?"
 b) Every bullet MUST be an accomplishment, NOT just a responsibility
-c) Every bullet MUST include a metric or measurable outcome (e.g., %, time saved, performance improvement, speed, reliability, user engagement, latency, efficiency)
-   - If the metric is not in the original text, use a reasonable metric style without fabricating specific data (e.g., "improved load time", "reduced errors", "increased efficiency")
+c) MANDATORY METRICS: Every bullet MUST include a specific measurable outcome such as:
+   - Percentages (e.g., "increased by 40%", "reduced by 25%")
+   - Time metrics (e.g., "saved 10 hours/week", "reduced latency by 200ms")
+   - Scale metrics (e.g., "served 1M+ users", "processed 50K requests/day")
+   - Money metrics (e.g., "saved $50K annually", "generated $100K revenue")
+   - Team/size metrics (e.g., "led team of 5", "mentored 3 junior developers")
+   - Quality metrics (e.g., "achieved 99.9% uptime", "reduced bugs by 60%")
 d) Every bullet MUST include:
-   - An action verb
-   - A measurable impact
+   - An action verb (e.g., Built, Led, Developed, Implemented, Designed, Optimized)
+   - A measurable impact with specific numbers
    - A relevant technology or concept from the job description (when appropriate)
-e) Format: "Action verb + what you did + technology/tool used + quantifiable result"
-f) Example good bullet: "Built a React-based dashboard with TypeScript that reduced customer support tickets by 40% and improved user retention by 25%"
-g) Example bad bullet: "Responsible for building dashboards" (no metric, no impact, no technology alignment)
+e) LENGTH LIMIT: Each bullet must be concise - maximum 2-3 lines, around 15-25 words. No long paragraphs.
+f) Format: "Action verb + what you did + technology/tool + specific measurable result"
+g) GOOD examples:
+   - "Built React dashboard with TypeScript, reducing support tickets by 40%"
+   - "Led migration to AWS, cutting infrastructure costs by $50K annually"
+   - "Optimized database queries, improving page load time from 3s to 800ms"
+   - "Implemented CI/CD pipeline with GitHub Actions, reducing deployment time by 75%"
+h) BAD examples (do NOT write like this):
+   - "Responsible for building dashboards" (no metric, too vague)
+   - "Worked on various projects using React and TypeScript to improve the user experience across multiple features" (too long, no specific metric)
 
 If a key responsibility is important but not clearly demonstrated by any existing bullet, you may rephrase or expand my existing information — but NEVER invent experience I do not have.
 
