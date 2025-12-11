@@ -71,14 +71,14 @@ Using the extracted responsibilities, generate a tailored resume in this exact s
 Create exactly 3 powerful bullets that represent the STRONGEST moments of my career that best match this job description. Each bullet must:
 - Highlight a specific career achievement with measurable impact
 - Draw from my actual work experience (do not invent achievements)
-- Emphasize results using metrics (%, $, time saved, team size, scale, etc.)
+- Include specific metrics (%, $, time saved, team size, scale, etc.)
 - Align closely with the KEY RESPONSIBILITIES you extracted
-- Be concise but compelling (1-2 sentences max)
+- LENGTH LIMIT: Maximum 15-20 words per bullet. Keep it punchy and impactful.
 
 Example good logline bullets:
-- "Led a team of 12 engineers to deliver a $5M e-commerce platform, increasing revenue by 35% in first quarter"
-- "Reduced infrastructure costs by 60% through strategic migration to cloud architecture, saving $200K annually"
-- "Architected real-time data pipeline processing 10M+ events daily with 99.9% uptime"
+- "Led team of 12 to deliver $5M e-commerce platform, boosting revenue 35%"
+- "Cut infrastructure costs 60% via cloud migration, saving $200K annually"
+- "Built real-time data pipeline processing 10M+ events daily at 99.9% uptime"
 
 2. Tailored Experiences
 For EACH experience in my profile, return:
