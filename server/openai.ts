@@ -873,8 +873,9 @@ Return valid JSON only.`;
     return validRecs.includes(upper as any) ? (upper as any) : "APPLY";
   };
 
-  const jobMatch = clamp(parsed.gapAnalysis?.jobMatch ?? parsed.jobMatch);
-  const shouldGenerate = jobMatch >= 60 || parsed.shouldGenerateResume === true;
+  const jobMatch = clamp(parsed.gapAnalysis?.jobMatch ?? parsed.jobMatch ?? 40);
+  // Only allow generation if jobMatch >= 60, never default to true
+  const shouldGenerate = jobMatch >= 60;
 
   return {
     shouldGenerateResume: shouldGenerate,
