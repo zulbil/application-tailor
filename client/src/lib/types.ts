@@ -128,3 +128,26 @@ export interface ChallengeData {
   progress: number;
   shouldRemind: boolean;
 }
+
+export interface CategoryScore {
+  score: number;
+  feedback: string;
+}
+
+export interface ResumeRanking {
+  overallScore: number;
+  interviewProbability: number;
+  recommendation: "STRONG_PASS" | "PASS" | "MAYBE" | "WEAK" | "REJECT";
+  categories: {
+    atsOptimization: CategoryScore;
+    humanReadability: CategoryScore;
+    jobMatch: CategoryScore;
+    impactCommunication: CategoryScore;
+    professionalPresentation: CategoryScore;
+    truthfulness: CategoryScore;
+  };
+  strengths: string[];
+  weaknesses: string[];
+  redFlags: string[];
+  improvements: string[];
+}

@@ -1,4 +1,4 @@
-import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse } from "./types";
+import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse, ResumeRanking } from "./types";
 
 interface ProfileResponse {
   profile: Omit<Profile, "experiences" | "education">;
@@ -236,6 +236,31 @@ export const api = {
       throw new Error(error.error || "Failed to update cover letter");
     }
     
+    return response.json();
+  },
+
+  evaluateResumeRanking: async (id: string): Promise<ResumeRanking> => {
+    const response = await fetch(`/api/applications/${id}/ranking`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to evaluate resume");
+    }
+    
+    return response.json();
+  },
+
+  getCachedRanking: async (id: string): Promise<ResumeRanking | null> => {
+    const response = await fetch(`/api/applications/${id}/ranking`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error("Failed to fetch ranking");
+    }
     return response.json();
   },
 };

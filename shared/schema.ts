@@ -74,6 +74,7 @@ export const jobApplications = pgTable("job_applications", {
   generatedResume: jsonb("generated_resume"),
   generatedCoverLetter: text("generated_cover_letter"),
   resumeSettings: jsonb("resume_settings"),
+  resumeRanking: jsonb("resume_ranking"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   statusUpdatedAt: timestamp("status_updated_at").notNull().defaultNow(),
 });

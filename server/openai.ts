@@ -637,3 +637,144 @@ ${profile.firstName} ${profile.lastName}`;
 
   return parsed;
 }
+
+export interface ResumeRankingResult {
+  overallScore: number;
+  interviewProbability: number;
+  recommendation: "STRONG_PASS" | "PASS" | "MAYBE" | "WEAK" | "REJECT";
+  categories: {
+    atsOptimization: { score: number; feedback: string };
+    humanReadability: { score: number; feedback: string };
+    jobMatch: { score: number; feedback: string };
+    impactCommunication: { score: number; feedback: string };
+    professionalPresentation: { score: number; feedback: string };
+    truthfulness: { score: number; feedback: string };
+  };
+  strengths: string[];
+  weaknesses: string[];
+  redFlags: string[];
+  improvements: string[];
+}
+
+export async function evaluateResumeRanking(
+  generatedResume: {
+    logline: string[];
+    experiences: Array<{
+      company: string;
+      title: string;
+      location: string;
+      start: string;
+      end: string;
+      bullets: string[];
+    }>;
+    technologies: string;
+    relevantSkills?: string[];
+  },
+  jobDescription: string,
+  jobTitle?: string,
+  companyName?: string
+): Promise<ResumeRankingResult> {
+  const systemMessage = `You are a recruiter evaluating resumes. Return a JSON object with these exact fields:
+- overallScore (number 0-100)
+- interviewProbability (number 0-100)
+- recommendation (one of: STRONG_PASS, PASS, MAYBE, WEAK, REJECT)
+- categories object with 6 keys, each having score (number) and feedback (string):
+  atsOptimization, humanReadability, jobMatch, impactCommunication, professionalPresentation, truthfulness
+- strengths (array of 3 strings)
+- weaknesses (array of 3 strings)
+- redFlags (array of strings, can be empty)
+- improvements (array of 3 strings)`;
+
+  const resumeSummary = generatedResume.logline?.join(" | ") || "No summary";
+  const skills = generatedResume.relevantSkills?.join(", ") || generatedResume.technologies || "No skills listed";
+  const experienceList = (generatedResume.experiences || []).map(exp => 
+    `${exp.title} at ${exp.company}: ${(exp.bullets || []).slice(0, 2).join("; ")}`
+  ).join(" | ");
+
+  const userMessage = `Evaluate this resume for: ${jobTitle || "the role"} at ${companyName || "the company"}.
+
+Resume Summary: ${resumeSummary}
+Skills: ${skills}
+Experience: ${experienceList}
+
+Job Description: ${jobDescription.slice(0, 1500)}
+
+Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 improvements. Return valid JSON only.`;
+
+  console.log("Calling OpenAI for resume ranking evaluation...");
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.2,
+  });
+
+  let content = response.choices[0]?.message?.content || "{}";
+  console.log("OpenAI ranking evaluation response received");
+
+  // Strip markdown code fences if present
+  content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  
+  // Try to extract JSON object if there's extra text
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    content = jsonMatch[0];
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch (e) {
+    console.error("Failed to parse OpenAI ranking response:", content);
+    parsed = {};
+  }
+
+  const clampScore = (val: any): number => {
+    const num = Number(val);
+    if (isNaN(num)) return 50;
+    return Math.max(0, Math.min(100, Math.round(num)));
+  };
+
+  const ensureCategory = (cat: any) => ({
+    score: clampScore(cat?.score),
+    feedback: typeof cat?.feedback === "string" && cat.feedback.length > 0 
+      ? cat.feedback.slice(0, 200) 
+      : "No feedback available"
+  });
+
+  const ensureArray = (arr: any, fallback: string[]): string[] => {
+    if (!Array.isArray(arr) || arr.length === 0) return fallback;
+    return arr.filter(item => typeof item === "string" && item.length > 0).slice(0, 5);
+  };
+
+  const validRecommendations = ["STRONG_PASS", "PASS", "MAYBE", "WEAK", "REJECT"] as const;
+  const normalizeRecommendation = (rec: any): ResumeRankingResult["recommendation"] => {
+    if (typeof rec !== "string") return "MAYBE";
+    const upper = rec.toUpperCase().replace(/\s+/g, "_");
+    return validRecommendations.includes(upper as any) ? (upper as any) : "MAYBE";
+  };
+
+  const result: ResumeRankingResult = {
+    overallScore: clampScore(parsed.overallScore),
+    interviewProbability: clampScore(parsed.interviewProbability),
+    recommendation: normalizeRecommendation(parsed.recommendation),
+    categories: {
+      atsOptimization: ensureCategory(parsed.categories?.atsOptimization),
+      humanReadability: ensureCategory(parsed.categories?.humanReadability),
+      jobMatch: ensureCategory(parsed.categories?.jobMatch),
+      impactCommunication: ensureCategory(parsed.categories?.impactCommunication),
+      professionalPresentation: ensureCategory(parsed.categories?.professionalPresentation),
+      truthfulness: ensureCategory(parsed.categories?.truthfulness),
+    },
+    strengths: ensureArray(parsed.strengths, ["Resume is well-structured", "Skills are clearly listed", "Experience is relevant"]),
+    weaknesses: ensureArray(parsed.weaknesses, ["Could add more metrics", "Some skills may be missing", "Consider adding more detail"]),
+    redFlags: ensureArray(parsed.redFlags, []),
+    improvements: ensureArray(parsed.improvements, ["Add quantifiable achievements", "Tailor skills to job description", "Improve bullet formatting"]),
+  };
+
+  return result;
+}

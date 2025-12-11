@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertProfileSchema, insertExperienceSchema, insertEducationSchema, applicationStatusEnum } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { generateTailoredResume, generateCoverLetter } from "./openai";
+import { generateTailoredResume, generateCoverLetter, evaluateResumeRanking } from "./openai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, fontSizeOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
 
@@ -586,6 +586,51 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating content:", error);
       return res.status(500).json({ error: "Failed to update content" });
+    }
+  });
+
+  // Resume ranking evaluation endpoint
+  app.post("/api/applications/:id/ranking", isAuthenticated, async (req: any, res) => {
+    try {
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application || !application.generatedResume) {
+        return res.status(404).json({ error: "Resume not found. Generate one first." });
+      }
+
+      const resumeData = application.generatedResume as any;
+      const ranking = await evaluateResumeRanking(
+        resumeData,
+        application.jobDescription,
+        application.jobTitle,
+        application.company
+      );
+
+      // Persist the ranking to avoid repeated AI calls
+      await storage.updateJobApplicationRanking(req.params.id, ranking);
+
+      return res.json(ranking);
+    } catch (error) {
+      console.error("Error evaluating resume ranking:", error);
+      return res.status(500).json({ error: "Failed to evaluate resume" });
+    }
+  });
+
+  // Get cached ranking
+  app.get("/api/applications/:id/ranking", isAuthenticated, async (req: any, res) => {
+    try {
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      
+      if (!application.resumeRanking) {
+        return res.status(404).json({ error: "No ranking available. Evaluate first." });
+      }
+
+      return res.json(application.resumeRanking);
+    } catch (error) {
+      console.error("Error fetching ranking:", error);
+      return res.status(500).json({ error: "Failed to fetch ranking" });
     }
   });
 

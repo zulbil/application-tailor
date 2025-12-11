@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2, BarChart3, Star, AlertTriangle, TrendingUp, CheckCircle, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse } from "@/lib/types";
+import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +137,8 @@ export default function JobApplicationPage() {
   const [editedSkills, setEditedSkills] = useState("");
   const [isEditingExperience, setIsEditingExperience] = useState(false);
   const [editedExperiences, setEditedExperiences] = useState<GeneratedResume["experiences"]>([]);
+  const [ranking, setRanking] = useState<ResumeRanking | null>(null);
+  const [isEvaluatingRanking, setIsEvaluatingRanking] = useState(false);
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -170,6 +172,10 @@ export default function JobApplicationPage() {
             if (app.resumeSettings) {
               setSettings({ ...defaultSettings, ...app.resumeSettings });
             }
+            // Load cached ranking if available
+            api.getCachedRanking(data.applicationId).then(cachedRanking => {
+              if (cachedRanking) setRanking(cachedRanking);
+            }).catch(() => {});
           }).catch(() => {});
         }
         sessionStorage.removeItem("prefillApplication");
@@ -415,6 +421,7 @@ export default function JobApplicationPage() {
       
       setResume(result.resume);
       setCoverLetter({ coverLetter: result.coverLetter });
+      setRanking(null); // Clear cached ranking when resume is regenerated
       
       toast({ title: "Generated!", description: "Your tailored resume and cover letter are ready and saved." });
     } catch (e: any) {
@@ -486,6 +493,43 @@ export default function JobApplicationPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: "Downloaded!", description: "Cover letter saved as text file." });
+  };
+
+  const handleEvaluateRanking = async () => {
+    if (!savedApplicationRef.current || !resume) {
+      toast({ title: "Resume Required", description: "Generate a resume first before evaluating.", variant: "destructive" });
+      return;
+    }
+    
+    setIsEvaluatingRanking(true);
+    try {
+      const result = await api.evaluateResumeRanking(savedApplicationRef.current);
+      setRanking(result);
+      toast({ title: "Evaluation Complete", description: "Your resume has been evaluated from a recruiter's perspective." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to evaluate resume.", variant: "destructive" });
+    } finally {
+      setIsEvaluatingRanking(false);
+    }
+  };
+
+  const getRecommendationColor = (rec: string) => {
+    switch (rec) {
+      case "STRONG_PASS": return "text-green-600 bg-green-50";
+      case "PASS": return "text-emerald-600 bg-emerald-50";
+      case "MAYBE": return "text-yellow-600 bg-yellow-50";
+      case "WEAK": return "text-orange-600 bg-orange-50";
+      case "REJECT": return "text-red-600 bg-red-50";
+      default: return "text-gray-600 bg-gray-50";
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-600";
+    if (score >= 60) return "text-emerald-600";
+    if (score >= 40) return "text-yellow-600";
+    if (score >= 20) return "text-orange-600";
+    return "text-red-600";
   };
 
   if (!profile) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
@@ -568,9 +612,10 @@ export default function JobApplicationPage() {
       {/* Results Section */}
       <div className="lg:col-span-7 space-y-8">
         <Tabs defaultValue="resume" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="resume">Tailored Resume</TabsTrigger>
             <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
+            <TabsTrigger value="ranking">Score</TabsTrigger>
           </TabsList>
 
           <TabsContent value="resume" className="space-y-4 mt-4">
@@ -1014,6 +1059,213 @@ export default function JobApplicationPage() {
                   )}
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="ranking" className="mt-4">
+            {!resume ? (
+              <div className="h-[400px] flex flex-col items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground bg-muted/10">
+                <BarChart3 className="size-12 mb-4 opacity-20" />
+                <p>Generate a resume first to get a recruiter-style evaluation</p>
+              </div>
+            ) : !ranking ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="size-5" />
+                    Resume Ranking System
+                  </CardTitle>
+                  <CardDescription>
+                    Get AI-powered feedback from a recruiter's perspective. See how your resume scores across 6 key categories and get actionable improvement suggestions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center py-8">
+                  <Button 
+                    size="lg" 
+                    onClick={handleEvaluateRanking}
+                    disabled={isEvaluatingRanking}
+                    data-testid="button-evaluate-ranking"
+                  >
+                    {isEvaluatingRanking ? (
+                      <>
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                        Evaluating...
+                      </>
+                    ) : (
+                      <>
+                        <Star className="size-4 mr-2" />
+                        Evaluate My Resume
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-4 text-center max-w-md">
+                    This evaluation simulates how a recruiter would review your resume in the first 6 seconds of screening.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {/* Overall Score Card */}
+                <Card className="border-2">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold">Overall Score</h3>
+                        <p className={`text-5xl font-bold ${getScoreColor(ranking.overallScore)}`}>
+                          {ranking.overallScore}<span className="text-lg text-muted-foreground">/100</span>
+                        </p>
+                      </div>
+                      <div className="text-right space-y-2">
+                        <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getRecommendationColor(ranking.recommendation)}`}>
+                          {ranking.recommendation.replace("_", " ")}
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                          Interview probability: <span className="font-semibold">{ranking.interviewProbability}%</span>
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Category Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Category Scores</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {[
+                      { key: "atsOptimization", label: "ATS Optimization", weight: "20%" },
+                      { key: "humanReadability", label: "Human Readability", weight: "20%" },
+                      { key: "jobMatch", label: "Job Match", weight: "25%" },
+                      { key: "impactCommunication", label: "Impact Communication", weight: "20%" },
+                      { key: "professionalPresentation", label: "Professional Presentation", weight: "10%" },
+                      { key: "truthfulness", label: "Truthfulness", weight: "5%" },
+                    ].map(({ key, label, weight }) => {
+                      const cat = ranking.categories[key as keyof typeof ranking.categories];
+                      return (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">{label} <span className="text-xs text-muted-foreground">({weight})</span></span>
+                            <span className={`text-sm font-bold ${getScoreColor(cat.score)}`}>{cat.score}</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="h-2 rounded-full transition-all bg-primary" 
+                              style={{ width: `${cat.score}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">{cat.feedback}</p>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Strengths & Weaknesses */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-green-600">
+                        <CheckCircle className="size-4" />
+                        Strengths
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-1 text-sm">
+                        {ranking.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-green-500 mt-0.5">+</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-orange-600">
+                        <XCircle className="size-4" />
+                        Weaknesses
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-1 text-sm">
+                        {ranking.weaknesses.map((w, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-orange-500 mt-0.5">-</span>
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Red Flags */}
+                {ranking.redFlags.length > 0 && (
+                  <Card className="border-red-200">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="size-4" />
+                        Red Flags
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-1 text-sm">
+                        {ranking.redFlags.map((f, i) => (
+                          <li key={i} className="flex items-start gap-2 text-red-600">
+                            <span className="mt-0.5">!</span>
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Improvements */}
+                <Card className="border-blue-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2 text-blue-600">
+                      <TrendingUp className="size-4" />
+                      Recommended Improvements
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-sm">
+                      {ranking.improvements.map((imp, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-blue-500 font-bold">{i + 1}.</span>
+                          {imp}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                {/* Re-evaluate Button */}
+                <div className="text-center pt-2">
+                  <Button 
+                    variant="outline"
+                    onClick={handleEvaluateRanking}
+                    disabled={isEvaluatingRanking}
+                    data-testid="button-reevaluate-ranking"
+                  >
+                    {isEvaluatingRanking ? (
+                      <>
+                        <Loader2 className="size-4 mr-2 animate-spin" />
+                        Re-evaluating...
+                      </>
+                    ) : (
+                      <>
+                        <Star className="size-4 mr-2" />
+                        Re-evaluate After Edits
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             )}
           </TabsContent>
         </Tabs>

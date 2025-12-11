@@ -54,6 +54,7 @@ export interface IStorage {
   updateJobApplicationGeneratedContent(id: string, resume: any, coverLetter: string): Promise<JobApplication | null>;
   updateJobApplicationDetails(id: string, data: { company?: string; jobTitle?: string; jobDescription?: string }): Promise<JobApplication | null>;
   updateJobApplicationSettings(id: string, settings: any): Promise<JobApplication | null>;
+  updateJobApplicationRanking(id: string, ranking: any): Promise<JobApplication | null>;
   deleteJobApplication(id: string): Promise<boolean>;
   
   getCurrentChallenge(profileId: string): Promise<{ challenge: WeeklyChallenge; progress: number; shouldRemind: boolean } | null>;
@@ -197,7 +198,7 @@ export class DatabaseStorage implements IStorage {
   async updateJobApplicationGeneratedContent(id: string, resume: any, coverLetter: string): Promise<JobApplication | null> {
     const [updated] = await db
       .update(jobApplications)
-      .set({ generatedResume: resume, generatedCoverLetter: coverLetter })
+      .set({ generatedResume: resume, generatedCoverLetter: coverLetter, resumeRanking: null })
       .where(eq(jobApplications.id, id))
       .returning();
     return updated || null;
@@ -231,6 +232,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(jobApplications)
       .set({ resumeSettings: mergedSettings })
+      .where(eq(jobApplications.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async updateJobApplicationRanking(id: string, ranking: any): Promise<JobApplication | null> {
+    const [updated] = await db
+      .update(jobApplications)
+      .set({ resumeRanking: ranking })
       .where(eq(jobApplications.id, id))
       .returning();
     return updated || null;
