@@ -38,6 +38,7 @@ export const profiles = pgTable("profiles", {
   location: text("location").notNull(),
   headline: text("headline").notNull(),
   skills: text("skills").notNull(),
+  linkedinUrl: text("linkedin_url").default(""),
 });
 
 export const experiences = pgTable("experiences", {

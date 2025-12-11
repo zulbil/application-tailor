@@ -25,6 +25,7 @@ export interface Profile {
   location: string;
   headline: string;
   skills: string;
+  linkedinUrl?: string;
   experiences: Experience[];
   education: Education[];
 }

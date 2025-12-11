@@ -24,6 +24,7 @@ export default function ProfilePage() {
       location: "",
       headline: "",
       skills: "",
+      linkedinUrl: "",
       experiences: [],
       education: []
     }
@@ -143,6 +144,10 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <Label htmlFor="headline">Headline</Label>
               <Input id="headline" data-testid="input-headline" {...form.register("headline")} placeholder="Senior Software Engineer" />
+            </div>
+            <div className="col-span-full space-y-2">
+              <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+              <Input id="linkedinUrl" data-testid="input-linkedinUrl" {...form.register("linkedinUrl")} placeholder="https://linkedin.com/in/janedoe" />
             </div>
             <div className="col-span-full space-y-2">
               <Label htmlFor="skills">Skills (Comma separated)</Label>
