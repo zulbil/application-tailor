@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2, BarChart3, Star, AlertTriangle, TrendingUp, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2, BarChart3, Star, AlertTriangle, TrendingUp, CheckCircle, XCircle, Search, Target, Lightbulb, ArrowRight } from "lucide-react";
 import { api } from "@/lib/api";
-import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking } from "@/lib/types";
+import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +139,9 @@ export default function JobApplicationPage() {
   const [editedExperiences, setEditedExperiences] = useState<GeneratedResume["experiences"]>([]);
   const [ranking, setRanking] = useState<ResumeRanking | null>(null);
   const [isEvaluatingRanking, setIsEvaluatingRanking] = useState(false);
+  const [gapAnalysis, setGapAnalysis] = useState<GapAnalysis | null>(null);
+  const [isAnalyzingGap, setIsAnalyzingGap] = useState(false);
+  const [showGapWarning, setShowGapWarning] = useState(false);
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -384,7 +387,31 @@ export default function JobApplicationPage() {
     }
   };
 
-  const handleGenerateBoth = async (data: JobApplicationInput) => {
+  const handleAnalyzeGap = async (data: JobApplicationInput) => {
+    if (!profile) {
+      toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
+      return;
+    }
+    
+    setIsAnalyzingGap(true);
+    try {
+      const result = await api.analyzeGap(data);
+      setGapAnalysis(result);
+      
+      if (!result.shouldGenerateResume) {
+        setShowGapWarning(true);
+      } else {
+        // Good match, proceed to generate
+        await handleGenerateBothDirect(data);
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to analyze job fit.", variant: "destructive" });
+    } finally {
+      setIsAnalyzingGap(false);
+    }
+  };
+
+  const handleGenerateBothDirect = async (data: JobApplicationInput) => {
     if (!profile) {
       toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
       return;
@@ -392,6 +419,7 @@ export default function JobApplicationPage() {
     
     setIsGeneratingResume(true);
     setIsGeneratingCoverLetter(true);
+    setShowGapWarning(false);
     
     try {
       let applicationId = savedApplicationRef.current;
@@ -421,7 +449,8 @@ export default function JobApplicationPage() {
       
       setResume(result.resume);
       setCoverLetter({ coverLetter: result.coverLetter });
-      setRanking(null); // Clear cached ranking when resume is regenerated
+      setRanking(null);
+      setGapAnalysis(null);
       
       toast({ title: "Generated!", description: "Your tailored resume and cover letter are ready and saved." });
     } catch (e: any) {
@@ -433,11 +462,23 @@ export default function JobApplicationPage() {
   };
 
   const handleGenerateResume = async (data: JobApplicationInput) => {
-    await handleGenerateBoth(data);
+    await handleAnalyzeGap(data);
   };
 
   const handleGenerateCoverLetter = async (data: JobApplicationInput) => {
-    await handleGenerateBoth(data);
+    await handleAnalyzeGap(data);
+  };
+  
+  const handleSkipJob = () => {
+    setShowGapWarning(false);
+    setGapAnalysis(null);
+    form.reset();
+    toast({ title: "Job Skipped", description: "You can try a different job that better matches your skills." });
+  };
+
+  const handleGenerateAnyway = async () => {
+    const data = form.getValues();
+    await handleGenerateBothDirect(data);
   };
 
   const copyToClipboard = (text: string) => {
@@ -590,23 +631,125 @@ export default function JobApplicationPage() {
               <Button 
                 className="flex-1"
                 onClick={form.handleSubmit(handleGenerateResume)}
-                disabled={isGeneratingResume}
+                disabled={isGeneratingResume || isAnalyzingGap}
+                data-testid="button-generate-resume"
               >
-                {isGeneratingResume ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
-                Resume
-              </Button>
-              <Button 
-                className="flex-1" 
-                variant="secondary"
-                onClick={form.handleSubmit(handleGenerateCoverLetter)}
-                disabled={isGeneratingCoverLetter}
-              >
-                {isGeneratingCoverLetter ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileUser className="size-4 mr-2" />}
-                Cover Letter
+                {isAnalyzingGap ? (
+                  <><Search className="size-4 mr-2 animate-pulse" /> Analyzing...</>
+                ) : isGeneratingResume ? (
+                  <><Loader2 className="size-4 mr-2 animate-spin" /> Generating...</>
+                ) : (
+                  <><FileText className="size-4 mr-2" /> Generate</>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Gap Analysis Warning Dialog */}
+        <Dialog open={showGapWarning} onOpenChange={setShowGapWarning}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-orange-600">
+                <AlertTriangle className="size-5" />
+                Low Job Match Detected
+              </DialogTitle>
+            </DialogHeader>
+            {gapAnalysis && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Match Score</div>
+                    <div className="text-3xl font-bold text-orange-600">{gapAnalysis.gapAnalysis.jobMatch}%</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-muted-foreground">Interview Probability</div>
+                    <div className="text-2xl font-semibold text-orange-600">{gapAnalysis.gapAnalysis.interviewProbability}%</div>
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground">{gapAnalysis.gapAnalysis.recommendationReason}</p>
+
+                {gapAnalysis.gapAnalysis.criticalGaps.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2 text-red-600">
+                      <XCircle className="size-4" /> Critical Gaps
+                    </div>
+                    <ul className="text-sm space-y-1 pl-6">
+                      {gapAnalysis.gapAnalysis.criticalGaps.map((gap, i) => (
+                        <li key={i} className="list-disc text-red-600">{gap}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {gapAnalysis.gapAnalysis.strongMatches.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2 text-green-600">
+                      <CheckCircle className="size-4" /> Your Strengths
+                    </div>
+                    <ul className="text-sm space-y-1 pl-6">
+                      {gapAnalysis.gapAnalysis.strongMatches.map((match, i) => (
+                        <li key={i} className="list-disc text-green-600">{match}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {gapAnalysis.gapAnalysis.suggestedActions.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2 text-blue-600">
+                      <Lightbulb className="size-4" /> Suggested Actions
+                    </div>
+                    <ul className="text-sm space-y-1 pl-6">
+                      {gapAnalysis.gapAnalysis.suggestedActions.map((action, i) => (
+                        <li key={i} className="list-disc">{action}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {gapAnalysis.gapAnalysis.betterJobMatches.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2 text-emerald-600">
+                      <Target className="size-4" /> Better Job Matches For You
+                    </div>
+                    <ul className="text-sm space-y-1 pl-6">
+                      {gapAnalysis.gapAnalysis.betterJobMatches.map((job, i) => (
+                        <li key={i} className="list-disc">{job}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {gapAnalysis.gapAnalysis.timeToBeQualified && gapAnalysis.gapAnalysis.timeToBeQualified !== "N/A" && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Time to qualify: {gapAnalysis.gapAnalysis.timeToBeQualified}
+                  </p>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={handleSkipJob} data-testid="button-skip-job">
+                    <X className="size-4 mr-2" />
+                    Skip This Job
+                  </Button>
+                  <Button 
+                    className="flex-1" 
+                    onClick={handleGenerateAnyway}
+                    disabled={isGeneratingResume}
+                    data-testid="button-generate-anyway"
+                  >
+                    {isGeneratingResume ? (
+                      <><Loader2 className="size-4 mr-2 animate-spin" /> Generating...</>
+                    ) : (
+                      <><ArrowRight className="size-4 mr-2" /> Generate Anyway</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Results Section */}

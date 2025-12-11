@@ -151,3 +151,18 @@ export interface ResumeRanking {
   redFlags: string[];
   improvements: string[];
 }
+
+export interface GapAnalysis {
+  shouldGenerateResume: boolean;
+  gapAnalysis: {
+    jobMatch: number;
+    interviewProbability: number;
+    criticalGaps: string[];
+    strongMatches: string[];
+    recommendation: "APPLY" | "SKIP" | "LEARN_FIRST";
+    recommendationReason: string;
+    suggestedActions: string[];
+    betterJobMatches: string[];
+    timeToBeQualified: string;
+  };
+}

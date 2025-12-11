@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertProfileSchema, insertExperienceSchema, insertEducationSchema, applicationStatusEnum } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { generateTailoredResume, generateCoverLetter, evaluateResumeRanking } from "./openai";
+import { generateTailoredResume, generateCoverLetter, evaluateResumeRanking, analyzeJobFitGap } from "./openai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, fontSizeOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
 
@@ -280,6 +280,60 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating cover letter:", error);
       return res.status(500).json({ error: "Failed to generate cover letter" });
+    }
+  });
+
+  // Pre-generation gap analysis endpoint
+  app.post("/api/analyze-gap", isAuthenticated, async (req: any, res) => {
+    try {
+      const validation = generateResumeSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        const errorMessage = fromZodError(validation.error).message;
+        return res.status(400).json({ error: errorMessage });
+      }
+
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      
+      if (!profileData) {
+        return res.status(400).json({ error: "Please save your profile first" });
+      }
+
+      const result = await analyzeJobFitGap(
+        {
+          firstName: profileData.profile.firstName,
+          lastName: profileData.profile.lastName,
+          email: profileData.profile.email,
+          phone: profileData.profile.phone,
+          location: profileData.profile.location,
+          headline: profileData.profile.headline,
+          skills: profileData.profile.skills,
+          experiences: profileData.experiences.map(exp => ({
+            company: exp.company,
+            title: exp.title,
+            location: exp.location,
+            startDate: exp.startDate,
+            endDate: exp.endDate,
+            responsibilities: exp.responsibilities,
+          })),
+          education: profileData.education.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            field: edu.field,
+            startDate: edu.startDate,
+            endDate: edu.endDate,
+          }))
+        },
+        validation.data.jobDescription,
+        validation.data.jobTitle,
+        validation.data.companyName
+      );
+
+      return res.json(result);
+    } catch (error) {
+      console.error("Error analyzing gap:", error);
+      return res.status(500).json({ error: "Failed to analyze job fit" });
     }
   });
 

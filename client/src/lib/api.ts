@@ -1,4 +1,4 @@
-import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse, ResumeRanking } from "./types";
+import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis } from "./types";
 
 interface ProfileResponse {
   profile: Omit<Profile, "experiences" | "education">;
@@ -261,6 +261,21 @@ export const api = {
     if (!response.ok) {
       throw new Error("Failed to fetch ranking");
     }
+    return response.json();
+  },
+
+  analyzeGap: async (data: JobApplicationInput): Promise<GapAnalysis> => {
+    const response = await fetch("/api/analyze-gap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to analyze job fit");
+    }
+    
     return response.json();
   },
 };

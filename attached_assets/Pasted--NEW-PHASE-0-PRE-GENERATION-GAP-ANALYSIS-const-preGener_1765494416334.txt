@@ -1,0 +1,152 @@
+// NEW PHASE 0: PRE-GENERATION GAP ANALYSIS
+
+const preGenerationPrompt = `
+# PHASE 0: CRITICAL GAP ANALYSIS (DO THIS FIRST)
+
+Before generating any resume, you MUST analyze if the candidate is 
+a good fit for this role. This prevents wasting the candidate's time 
+on jobs they're not qualified for.
+
+## Step 1: Extract Required Technologies
+
+From the job description, identify:
+1. PRIMARY requirements (mentioned 3+ times or in "must have" section)
+2. SECONDARY requirements (mentioned 1-2 times)
+3. PREFERRED skills (in "nice to have" section)
+
+Example:
+Job says: "Primary focus converting Java Swing to Angular..."
+- PRIMARY: Angular, Java Swing
+- SECONDARY: TypeScript, REST APIs
+- PREFERRED: AWS, Cloud
+
+## Step 2: Search Candidate's Experience
+
+For EACH primary requirement, search the candidate's experience:
+
+Example:
+Looking for "Angular":
+- Check work experience descriptions: NO
+- Check skills list: NO
+- Check project descriptions: NO
+Result: ❌ Candidate does NOT have Angular
+
+Looking for "Java Swing":
+- Check work experience: NO
+- Check skills: NO
+Result: ❌ Candidate does NOT have Java Swing
+
+Looking for "TypeScript":
+- Check work experience: YES (multiple mentions)
+- Check skills: YES
+Result: ✅ Candidate HAS TypeScript
+
+## Step 3: Calculate Match Score
+
+Match Score = (Primary requirements met / Total primary requirements) * 100
+
+Example:
+Primary requirements: Angular, Java Swing, TypeScript (3 total)
+Candidate has: Only TypeScript (1 of 3)
+Match Score: 33%
+
+## Step 4: Make Recommendation
+
+If match score < 60% on PRIMARY requirements:
+- recommendation: "SKIP" or "LEARN_FIRST"
+- Do NOT generate resume yet
+- Return gap analysis to user
+
+If match score >= 60%:
+- recommendation: "APPLY"
+- Proceed with resume generation
+- Emphasize matching skills
+
+## Step 5: Return Gap Analysis (If < 60%)
+
+Return this JSON structure:
+
+{
+  "shouldGenerateResume": false,
+  "gapAnalysis": {
+    "jobMatch": 33,
+    "interviewProbability": 15,
+    "criticalGaps": [
+      "Angular (PRIMARY requirement - mentioned 5 times in job description)",
+      "Java Swing (required for legacy UI interpretation)"
+    ],
+    "strongMatches": [
+      "TypeScript (excellent match)",
+      "REST APIs (strong experience)",
+      "7+ years experience (meets requirement)",
+      "CI/CD pipelines (demonstrated capability)"
+    ],
+    "recommendation": "SKIP",
+    "recommendationReason": "You're missing 2 of 3 primary requirements (Angular + Java Swing). Your React/Next.js expertise is valuable but this role specifically needs Angular. Applying would likely result in auto-rejection.",
+    "suggestedActions": [
+      "Learn Angular basics through official tutorial (2 weeks)",
+      "Build 1-2 Angular projects for portfolio (2 weeks)",
+      "Study Java Swing fundamentals to interpret legacy code (1 week)",
+      "Then reapply with Angular projects in experience"
+    ],
+    "betterJobMatches": [
+      "Senior React Developer - Your match: 95%",
+      "Full Stack Developer (React/Node.js) - Your match: 90%",
+      "Next.js Developer - Your match: 92%",
+      "Frontend Developer (React) - Your match: 88%"
+    ],
+    "timeToBeQualified": "4-6 weeks of focused Angular learning"
+  }
+}
+
+## CRITICAL RULE
+
+❌ NEVER claim skills the candidate doesn't have
+❌ NEVER fabricate experience with required technologies
+✅ ALWAYS be honest about gaps
+✅ ALWAYS warn user before generating a low-match resume
+✅ ALWAYS suggest better-fit alternatives
+
+If candidate doesn't have PRIMARY requirements, STOP and return gap analysis.
+Only proceed with resume generation if match >= 60%.
+`;
+```
+
+---
+
+## 🎨 **THE USER EXPERIENCE**
+
+### **Current Flow (BAD):**
+```
+User: "Generate resume for Angular job"
+  ↓
+Platform: "Sure!" 
+  ↓
+Generates resume with React/Next.js
+  ↓
+User applies
+  ↓
+Gets rejected (wasted time)
+```
+
+### **Better Flow (GOOD):**
+```
+User: "Generate resume for Angular job"
+  ↓
+Platform: Analyzing job requirements...
+  ↓
+Platform: "⚠️ Warning - This job requires Angular. You have React.
+           Match Score: 30%
+           Interview Probability: 15%
+           
+           Should I:
+           [ Skip This Job ]
+           [ Show Me Better Matches ]
+           [ Generate Anyway ]"
+  ↓
+User: Clicks "Show Me Better Matches"
+  ↓
+Platform: "Here are jobs that match your skills 90%+:
+           - Senior React Developer at XYZ Corp
+           - Full Stack (React/Node) at ABC Inc
+           - Next.js Developer at Tech Startup"

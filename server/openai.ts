@@ -778,3 +778,120 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
 
   return result;
 }
+
+export interface GapAnalysisResult {
+  shouldGenerateResume: boolean;
+  gapAnalysis: {
+    jobMatch: number;
+    interviewProbability: number;
+    criticalGaps: string[];
+    strongMatches: string[];
+    recommendation: "APPLY" | "SKIP" | "LEARN_FIRST";
+    recommendationReason: string;
+    suggestedActions: string[];
+    betterJobMatches: string[];
+    timeToBeQualified: string;
+  };
+}
+
+export async function analyzeJobFitGap(
+  profile: ProfileData,
+  jobDescription: string,
+  jobTitle?: string,
+  companyName?: string
+): Promise<GapAnalysisResult> {
+  const systemMessage = `You are a career advisor analyzing job fit. Compare the candidate's skills and experience against job requirements. Return JSON with:
+- shouldGenerateResume (boolean: true if match >= 60%, false otherwise)
+- gapAnalysis object with: jobMatch (0-100), interviewProbability (0-100), criticalGaps (array), strongMatches (array), recommendation (APPLY/SKIP/LEARN_FIRST), recommendationReason (string), suggestedActions (array), betterJobMatches (array of job title suggestions), timeToBeQualified (string)
+
+Be honest about skill gaps. If candidate lacks PRIMARY requirements, recommend SKIP or LEARN_FIRST.`;
+
+  const candidateSkills = profile.skills || "";
+  const candidateExperience = profile.experiences.map(exp => 
+    `${exp.title} at ${exp.company}: ${exp.responsibilities.slice(0, 150)}`
+  ).join(" | ");
+
+  const userMessage = `Analyze job fit for: ${jobTitle || "this role"} at ${companyName || "the company"}.
+
+CANDIDATE SKILLS: ${candidateSkills}
+
+CANDIDATE EXPERIENCE: ${candidateExperience}
+
+JOB DESCRIPTION: ${jobDescription.slice(0, 2000)}
+
+Steps:
+1. Extract PRIMARY requirements (must-have skills mentioned multiple times)
+2. Extract SECONDARY requirements (mentioned once or twice)
+3. Check which requirements the candidate has
+4. Calculate match percentage
+5. If match < 60%, recommend SKIP or LEARN_FIRST
+6. If match >= 60%, recommend APPLY
+
+Return valid JSON only.`;
+
+  console.log("Calling OpenAI for gap analysis...");
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.2,
+  });
+
+  let content = response.choices[0]?.message?.content || "{}";
+  console.log("OpenAI gap analysis response received");
+
+  content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (jsonMatch) content = jsonMatch[0];
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(content);
+  } catch (e) {
+    console.error("Failed to parse gap analysis response:", content);
+    parsed = {};
+  }
+
+  const clamp = (val: any): number => {
+    const num = Number(val);
+    return isNaN(num) ? 50 : Math.max(0, Math.min(100, Math.round(num)));
+  };
+
+  const ensureStrArray = (arr: any, fallback: string[]): string[] => {
+    if (!Array.isArray(arr)) return fallback;
+    return arr.filter(item => typeof item === "string" && item.length > 0).slice(0, 5);
+  };
+
+  const validRecs = ["APPLY", "SKIP", "LEARN_FIRST"] as const;
+  const normalizeRec = (rec: any): "APPLY" | "SKIP" | "LEARN_FIRST" => {
+    if (typeof rec !== "string") return "APPLY";
+    const upper = rec.toUpperCase().replace(/\s+/g, "_");
+    return validRecs.includes(upper as any) ? (upper as any) : "APPLY";
+  };
+
+  const jobMatch = clamp(parsed.gapAnalysis?.jobMatch ?? parsed.jobMatch);
+  const shouldGenerate = jobMatch >= 60 || parsed.shouldGenerateResume === true;
+
+  return {
+    shouldGenerateResume: shouldGenerate,
+    gapAnalysis: {
+      jobMatch,
+      interviewProbability: clamp(parsed.gapAnalysis?.interviewProbability ?? parsed.interviewProbability),
+      criticalGaps: ensureStrArray(parsed.gapAnalysis?.criticalGaps ?? parsed.criticalGaps, []),
+      strongMatches: ensureStrArray(parsed.gapAnalysis?.strongMatches ?? parsed.strongMatches, []),
+      recommendation: shouldGenerate ? "APPLY" : normalizeRec(parsed.gapAnalysis?.recommendation ?? parsed.recommendation),
+      recommendationReason: typeof (parsed.gapAnalysis?.recommendationReason ?? parsed.recommendationReason) === "string" 
+        ? (parsed.gapAnalysis?.recommendationReason ?? parsed.recommendationReason).slice(0, 500) 
+        : "Analysis complete.",
+      suggestedActions: ensureStrArray(parsed.gapAnalysis?.suggestedActions ?? parsed.suggestedActions, []),
+      betterJobMatches: ensureStrArray(parsed.gapAnalysis?.betterJobMatches ?? parsed.betterJobMatches, []),
+      timeToBeQualified: typeof (parsed.gapAnalysis?.timeToBeQualified ?? parsed.timeToBeQualified) === "string" 
+        ? (parsed.gapAnalysis?.timeToBeQualified ?? parsed.timeToBeQualified).slice(0, 100) 
+        : "N/A",
+    },
+  };
+}
