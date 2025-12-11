@@ -48,8 +48,10 @@ export interface IStorage {
   saveProfile(userId: string, profile: InsertProfile, experiencesData: InsertExperience[], educationData: InsertEducation[]): Promise<{ profile: Profile; experiences: Experience[]; education: Education[] }>;
   
   getJobApplications(profileId: string): Promise<JobApplication[]>;
+  getJobApplication(id: string): Promise<JobApplication | null>;
   createJobApplication(profileId: string, data: InsertJobApplication): Promise<JobApplication>;
   updateJobApplicationStatus(id: string, status: ApplicationStatus): Promise<JobApplication | null>;
+  updateJobApplicationGeneratedContent(id: string, resume: any, coverLetter: string): Promise<JobApplication | null>;
   deleteJobApplication(id: string): Promise<boolean>;
   
   getCurrentChallenge(profileId: string): Promise<{ challenge: WeeklyChallenge; progress: number; shouldRemind: boolean } | null>;
@@ -161,6 +163,14 @@ export class DatabaseStorage implements IStorage {
     return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
+  async getJobApplication(id: string): Promise<JobApplication | null> {
+    const [application] = await db
+      .select()
+      .from(jobApplications)
+      .where(eq(jobApplications.id, id));
+    return application || null;
+  }
+
   async createJobApplication(profileId: string, data: InsertJobApplication): Promise<JobApplication> {
     const [application] = await db
       .insert(jobApplications)
@@ -177,6 +187,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(jobApplications)
       .set({ status, statusUpdatedAt: new Date() })
+      .where(eq(jobApplications.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async updateJobApplicationGeneratedContent(id: string, resume: any, coverLetter: string): Promise<JobApplication | null> {
+    const [updated] = await db
+      .update(jobApplications)
+      .set({ generatedResume: resume, generatedCoverLetter: coverLetter })
       .where(eq(jobApplications.id, id))
       .returning();
     return updated || null;

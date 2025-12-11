@@ -20,6 +20,11 @@ const generateResumeSchema = z.object({
   tone: z.enum(["Professional", "Friendly", "Confident"]),
 });
 
+const generateForApplicationSchema = z.object({
+  applicationId: z.string(),
+  tone: z.enum(["Professional", "Friendly", "Confident"]),
+});
+
 const updateStatusSchema = z.object({
   status: z.enum(applicationStatusEnum),
 });
@@ -272,6 +277,120 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching applications:", error);
       return res.status(500).json({ error: "Failed to fetch applications" });
+    }
+  });
+
+  app.get("/api/applications/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+      return res.json(application);
+    } catch (error) {
+      console.error("Error fetching application:", error);
+      return res.status(500).json({ error: "Failed to fetch application" });
+    }
+  });
+
+  app.post("/api/applications/:id/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const validation = generateForApplicationSchema.safeParse({ ...req.body, applicationId: req.params.id });
+      
+      if (!validation.success) {
+        const errorMessage = fromZodError(validation.error).message;
+        return res.status(400).json({ error: errorMessage });
+      }
+
+      const userId = req.user.claims.sub;
+      const profileData = await storage.getProfileByUserId(userId);
+      
+      if (!profileData) {
+        return res.status(400).json({ error: "Please save your profile first" });
+      }
+
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      const jobAppData = {
+        jobDescription: application.jobDescription,
+        jobTitle: application.jobTitle,
+        companyName: application.company,
+        tone: validation.data.tone
+      };
+
+      const [resumeResult, coverLetterResult] = await Promise.all([
+        generateTailoredResume(
+          {
+            firstName: profileData.profile.firstName,
+            lastName: profileData.profile.lastName,
+            email: profileData.profile.email,
+            phone: profileData.profile.phone,
+            location: profileData.profile.location,
+            headline: profileData.profile.headline,
+            skills: profileData.profile.skills,
+            experiences: profileData.experiences.map(exp => ({
+              company: exp.company,
+              title: exp.title,
+              location: exp.location,
+              startDate: exp.startDate,
+              endDate: exp.endDate,
+              responsibilities: exp.responsibilities,
+            })),
+            education: profileData.education.map(edu => ({
+              school: edu.school,
+              degree: edu.degree,
+              field: edu.field,
+              startDate: edu.startDate,
+              endDate: edu.endDate,
+            }))
+          },
+          jobAppData
+        ),
+        generateCoverLetter(
+          {
+            firstName: profileData.profile.firstName,
+            lastName: profileData.profile.lastName,
+            email: profileData.profile.email,
+            phone: profileData.profile.phone,
+            location: profileData.profile.location,
+            headline: profileData.profile.headline,
+            skills: profileData.profile.skills,
+            experiences: profileData.experiences.map(exp => ({
+              company: exp.company,
+              title: exp.title,
+              location: exp.location,
+              startDate: exp.startDate,
+              endDate: exp.endDate,
+              responsibilities: exp.responsibilities,
+            })),
+            education: profileData.education.map(edu => ({
+              school: edu.school,
+              degree: edu.degree,
+              field: edu.field,
+              startDate: edu.startDate,
+              endDate: edu.endDate,
+            }))
+          },
+          jobAppData
+        )
+      ]);
+
+      await storage.updateJobApplicationGeneratedContent(
+        req.params.id,
+        resumeResult,
+        coverLetterResult.coverLetter
+      );
+
+      return res.json({
+        resume: resumeResult,
+        coverLetter: coverLetterResult.coverLetter
+      });
+    } catch (error) {
+      console.error("Error generating for application:", error);
+      return res.status(500).json({ error: "Failed to generate resume and cover letter" });
     }
   });
 
