@@ -60,14 +60,19 @@ export async function generateTailoredResume(
 - My profile (personal info, skills, work experiences, education)
 - A job description
 
-Using both, generate a tailored resume in this exact structure:
+STEP 1: EXTRACT KEY RESPONSIBILITIES
+First, read the job description and extract the KEY RESPONSIBILITIES the role requires.
+These responsibilities must guide how you rewrite my resume.
+
+STEP 2: GENERATE TAILORED RESUME
+Using the extracted responsibilities, generate a tailored resume in this exact structure:
 
 1. Impact Logline (Professional Summary)
 Create exactly 3 powerful bullets that represent the STRONGEST moments of my career that best match this job description. Each bullet must:
 - Highlight a specific career achievement with measurable impact
 - Draw from my actual work experience (do not invent achievements)
 - Emphasize results using metrics (%, $, time saved, team size, scale, etc.)
-- Align closely with what the target job is looking for
+- Align closely with the KEY RESPONSIBILITIES you extracted
 - Be concise but compelling (1-2 sentences max)
 
 Example good logline bullets:
@@ -78,15 +83,22 @@ Example good logline bullets:
 2. Tailored Experiences
 For EACH experience in my profile, return:
 - Company, Title, Location, Dates (unchanged from my profile)
-- Exactly 3 bullet points.
+- Exactly 3 bullet points
 
-CRITICAL REQUIREMENTS FOR EACH BULLET:
-- Each bullet MUST be an accomplishment, NOT just a responsibility
-- Each bullet MUST include a specific metric or clear impact (%, time saved, speed improvement, reliability increase, money saved/earned, team size led, etc.)
-- Each bullet MUST incorporate at least one relevant technology, tool, or concept from the job description when it makes sense (e.g. React, TypeScript, Vue, Python, AWS, design sensibility, CRM, integrations, Agile, etc.)
-- Format: "Action verb + what you did + technology/tool used + quantifiable result"
-- Example good bullet: "Built a React-based dashboard with TypeScript that reduced customer support tickets by 40% and improved user retention by 25%"
-- Example bad bullet: "Responsible for building dashboards" (no metric, no impact, no technology alignment)
+CRITICAL BULLET POINT RULES:
+a) Every bullet must implicitly answer: "Does this bullet prove the candidate can perform one or more of the KEY RESPONSIBILITIES?"
+b) Every bullet MUST be an accomplishment, NOT just a responsibility
+c) Every bullet MUST include a metric or measurable outcome (e.g., %, time saved, performance improvement, speed, reliability, user engagement, latency, efficiency)
+   - If the metric is not in the original text, use a reasonable metric style without fabricating specific data (e.g., "improved load time", "reduced errors", "increased efficiency")
+d) Every bullet MUST include:
+   - An action verb
+   - A measurable impact
+   - A relevant technology or concept from the job description (when appropriate)
+e) Format: "Action verb + what you did + technology/tool used + quantifiable result"
+f) Example good bullet: "Built a React-based dashboard with TypeScript that reduced customer support tickets by 40% and improved user retention by 25%"
+g) Example bad bullet: "Responsible for building dashboards" (no metric, no impact, no technology alignment)
+
+If a key responsibility is important but not clearly demonstrated by any existing bullet, you may rephrase or expand my existing information — but NEVER invent experience I do not have.
 
 3. Technologies from Job Description
 A single line: comma-separated list of technologies and tools found in the JD.
@@ -97,11 +109,14 @@ An array of 8-12 key skills/technologies that should appear on the resume's skil
 - Ordered by relevance to this specific job (most important first)
 - A mix of technical skills, tools, and soft skills mentioned in the JD
 
-Requirements:
-- Do not invent technologies I don't have; only map what I already have to the JD.
-- Do not change my job titles, company names, or dates.
-- Keep bullets concise and recruiter-friendly.
-- Return ONLY valid JSON with this structure:
+STRICT REQUIREMENTS:
+- You may reorganize or restyle what I already did
+- You may NOT invent job titles, responsibilities, technologies, or achievements I never had
+- Do not change my job titles, company names, or dates
+- Keep bullets concise and recruiter-friendly
+- GOAL: The final rewritten bullets must make it obvious that I can succeed in the job because my past accomplishments directly support the key responsibilities
+
+Return ONLY valid JSON with this structure:
 {
   "logline": ["...", "...", "..."],
   "experiences": [
