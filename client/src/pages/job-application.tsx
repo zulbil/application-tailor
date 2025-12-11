@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -19,23 +19,89 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortableSectionItem({ id }: { id: string }) {
+const defaultSectionLabels: Record<string, string> = {
+  summary: "",
+  skills: "Skills",
+  experience: "Experience",
+  education: "Education"
+};
+
+const defaultSectionPreferences: Record<string, { title: string; hidden: boolean }> = {
+  summary: { title: "", hidden: false },
+  skills: { title: "Skills", hidden: false },
+  experience: { title: "Experience", hidden: false },
+  education: { title: "Education", hidden: false }
+};
+
+interface SortableSectionItemProps {
+  id: string;
+  prefs: Record<string, { title: string; hidden: boolean }>;
+  onUpdatePrefs: (key: string, updates: Partial<{ title: string; hidden: boolean }>) => void;
+}
+
+function SortableSectionItem({ id, prefs, onUpdatePrefs }: SortableSectionItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+  };
+  const pref = prefs[id] || { title: defaultSectionLabels[id] || id, hidden: false };
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState(pref.title);
+
+  const saveTitle = () => {
+    onUpdatePrefs(id, { title: titleValue });
+    setIsEditingTitle(false);
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-grab active:cursor-grabbing"
-      {...attributes}
-      {...listeners}
+      className={`flex items-center gap-2 p-3 rounded-lg border ${pref.hidden ? "bg-muted/30 opacity-60" : "bg-muted/50"}`}
     >
-      <GripVertical className="size-4 text-muted-foreground" />
-      <span className="flex-1 capitalize">{id}</span>
+      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+        <GripVertical className="size-4 text-muted-foreground" />
+      </div>
+      <div className="flex-1">
+        {id === "summary" ? (
+          <span className="text-sm text-muted-foreground italic">Career Highlights (no title)</span>
+        ) : isEditingTitle ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={titleValue}
+              onChange={(e) => setTitleValue(e.target.value)}
+              className="flex-1 px-2 py-1 text-sm border rounded"
+              placeholder={`Section title for ${id}`}
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && saveTitle()}
+            />
+            <Button size="sm" variant="ghost" onClick={saveTitle}>
+              <Check className="size-3" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setTitleValue(pref.title); setIsEditingTitle(false); }}>
+              <X className="size-3" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{pref.title || defaultSectionLabels[id] || id}</span>
+            <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => setIsEditingTitle(true)}>
+              <Pencil className="size-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant={pref.hidden ? "default" : "ghost"}
+        className="h-8"
+        onClick={() => onUpdatePrefs(id, { hidden: !pref.hidden })}
+        data-testid={`toggle-section-${id}`}
+      >
+        {pref.hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </Button>
     </div>
   );
 }
@@ -45,7 +111,8 @@ const defaultSettings: ResumeSettings = {
   primaryColor: "#0f766e",
   fontFamily: "Inter",
   fontSize: "medium",
-  sectionOrder: ["summary", "skills", "experience", "education"]
+  sectionOrder: ["summary", "skills", "experience", "education"],
+  sectionPreferences: defaultSectionPreferences
 };
 
 export default function JobApplicationPage() {
@@ -133,6 +200,15 @@ export default function JobApplicationPage() {
       const newOrder = arrayMove(settings.sectionOrder, oldIndex, newIndex);
       updateSettings({ sectionOrder: newOrder });
     }
+  };
+
+  const handleUpdateSectionPrefs = (key: string, updates: Partial<{ title: string; hidden: boolean }>) => {
+    const currentPrefs = settings.sectionPreferences || defaultSectionPreferences;
+    const updatedPrefs = {
+      ...currentPrefs,
+      [key]: { ...currentPrefs[key], ...updates }
+    };
+    updateSettings({ sectionPreferences: updatedPrefs });
   };
 
   const startEditingResume = () => {
@@ -500,7 +576,7 @@ export default function JobApplicationPage() {
                             <SortableContext items={settings.sectionOrder} strategy={verticalListSortingStrategy}>
                               <div className="space-y-2">
                                 {settings.sectionOrder.map((section) => (
-                                  <SortableSectionItem key={section} id={section} />
+                                  <SortableSectionItem key={section} id={section} prefs={settings.sectionPreferences || defaultSectionPreferences} onUpdatePrefs={handleUpdateSectionPrefs} />
                                 ))}
                               </div>
                             </SortableContext>
