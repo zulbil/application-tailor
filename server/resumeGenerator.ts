@@ -184,6 +184,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
         }
         .section {
           margin-bottom: 20px;
+          page-break-inside: avoid;
         }
         h2 {
           font-size: ${sizes.heading};
@@ -194,6 +195,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
           margin-bottom: 10px;
           padding-bottom: 4px;
           border-bottom: 1px solid #e5e7eb;
+          page-break-after: avoid;
         }
         .summary-list {
           list-style: none;
@@ -216,6 +218,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
         }
         .experience, .education {
           margin-bottom: 14px;
+          page-break-inside: avoid;
         }
         .exp-header, .edu-header {
           display: flex;
@@ -343,6 +346,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
         }
         .section {
           margin-bottom: 16px;
+          page-break-inside: avoid;
         }
         h2 {
           font-size: ${sizes.heading};
@@ -351,9 +355,11 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
           border-bottom: 1px solid #000;
           margin-bottom: 8px;
           padding-bottom: 2px;
+          page-break-after: avoid;
         }
         .experience, .education {
           margin-bottom: 12px;
+          page-break-inside: avoid;
         }
         .exp-header {
           display: flex;
@@ -455,7 +461,7 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
           color: #6b7280;
           margin-top: 4px;
         }
-        .section { margin-bottom: 18px; }
+        .section { margin-bottom: 18px; page-break-inside: avoid; }
         h2 {
           font-size: ${sizes.heading};
           font-weight: 600;
@@ -463,8 +469,9 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
           letter-spacing: 0.1em;
           color: ${color};
           margin-bottom: 8px;
+          page-break-after: avoid;
         }
-        .experience { margin-bottom: 12px; }
+        .experience { margin-bottom: 12px; page-break-inside: avoid; }
         .exp-title { font-weight: 500; }
         .exp-meta { font-size: ${sizes.small}; color: #9ca3af; }
         ul { padding-left: 16px; margin-top: 4px; }
@@ -597,8 +604,8 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
           padding-bottom: 4px;
           border-bottom: 2px solid ${color};
         }
-        .section { margin-bottom: 20px; }
-        .experience { margin-bottom: 14px; }
+        .section { margin-bottom: 20px; page-break-inside: avoid; }
+        .experience { margin-bottom: 14px; page-break-inside: avoid; }
         .exp-header {
           display: flex;
           justify-content: space-between;
@@ -608,10 +615,11 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
         .exp-dates { font-size: ${sizes.small}; color: #9ca3af; }
         .exp-company { color: #6b7280; font-size: ${sizes.small}; }
         .edu-school { color: #6b7280; font-size: ${sizes.small}; }
-        .edu-item { margin-bottom: 8px; }
+        .edu-item { margin-bottom: 8px; page-break-inside: avoid; }
         .main-skills p { font-size: ${sizes.small}; color: #4b5563; }
         ul { padding-left: 18px; margin-top: 6px; }
         li { margin-bottom: 3px; font-size: ${sizes.body}; }
+        .main h2 { page-break-after: avoid; }
       </style>
     </head>
     <body>
