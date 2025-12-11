@@ -227,6 +227,50 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
 function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string {
   const font = "'Times New Roman', serif";
   
+  const sections: Record<string, string> = {
+    summary: `
+      <section class="section">
+        <h2>Summary</h2>
+        <ul>${data.logline.map(l => `<li>${l}</li>`).join("")}</ul>
+      </section>
+    `,
+    skills: `
+      <section class="section">
+        <h2>Skills</h2>
+        <p class="skills">${data.relevantSkills?.join(", ") || data.technologies}</p>
+      </section>
+    `,
+    experience: `
+      <section class="section">
+        <h2>Experience</h2>
+        ${data.experiences.map(exp => `
+          <div class="experience">
+            <div class="exp-header">
+              <strong>${exp.title}, ${exp.company}</strong>
+              <span>${exp.start} - ${exp.end}</span>
+            </div>
+            <div>${exp.location}</div>
+            <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
+          </div>
+        `).join("")}
+      </section>
+    `,
+    education: `
+      <section class="section">
+        <h2>Education</h2>
+        ${data.education.map(edu => `
+          <div class="education">
+            <strong>${edu.degree} in ${edu.field}</strong>, ${edu.school} (${edu.startDate} - ${edu.endDate})
+          </div>
+        `).join("")}
+      </section>
+    `
+  };
+
+  const orderedSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .map(key => sections[key] || "")
+    .join("");
+  
   return `
     <!DOCTYPE html>
     <html>
@@ -284,35 +328,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
         <h1>${data.profile.firstName} ${data.profile.lastName}</h1>
         <div class="contact">${data.profile.email} | ${data.profile.phone} | ${data.profile.location}</div>
       </header>
-      <section class="section">
-        <h2>Summary</h2>
-        <ul>${data.logline.map(l => `<li>${l}</li>`).join("")}</ul>
-      </section>
-      <section class="section">
-        <h2>Skills</h2>
-        <p class="skills">${data.relevantSkills?.join(", ") || data.technologies}</p>
-      </section>
-      <section class="section">
-        <h2>Experience</h2>
-        ${data.experiences.map(exp => `
-          <div class="experience">
-            <div class="exp-header">
-              <strong>${exp.title}, ${exp.company}</strong>
-              <span>${exp.start} - ${exp.end}</span>
-            </div>
-            <div>${exp.location}</div>
-            <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
-          </div>
-        `).join("")}
-      </section>
-      <section class="section">
-        <h2>Education</h2>
-        ${data.education.map(edu => `
-          <div class="education">
-            <strong>${edu.degree} in ${edu.field}</strong>, ${edu.school} (${edu.startDate} - ${edu.endDate})
-          </div>
-        `).join("")}
-      </section>
+      ${orderedSections}
     </body>
     </html>
   `;
@@ -320,6 +336,43 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
 
 function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#374151";
+  
+  const sections: Record<string, string> = {
+    summary: `
+      <section class="section">
+        <h2>Summary</h2>
+        <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>• ${l}</li>`).join("")}</ul>
+      </section>
+    `,
+    skills: `
+      <section class="section">
+        <h2>Skills</h2>
+        <p class="skills">${data.relevantSkills?.join(" · ") || data.technologies}</p>
+      </section>
+    `,
+    experience: `
+      <section class="section">
+        <h2>Experience</h2>
+        ${data.experiences.map(exp => `
+          <div class="experience">
+            <div class="exp-title">${exp.title} at ${exp.company}</div>
+            <div class="exp-meta">${exp.location} | ${exp.start} - ${exp.end}</div>
+            <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
+          </div>
+        `).join("")}
+      </section>
+    `,
+    education: `
+      <section class="section">
+        <h2>Education</h2>
+        ${data.education.map(edu => `<div>${edu.degree} in ${edu.field}, ${edu.school}</div>`).join("")}
+      </section>
+    `
+  };
+
+  const orderedSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .map(key => sections[key] || "")
+    .join("");
   
   return `
     <!DOCTYPE html>
@@ -369,28 +422,7 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
         <h1>${data.profile.firstName} ${data.profile.lastName}</h1>
         <div class="contact">${data.profile.email} · ${data.profile.phone} · ${data.profile.location}</div>
       </header>
-      <section class="section">
-        <h2>Summary</h2>
-        <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>• ${l}</li>`).join("")}</ul>
-      </section>
-      <section class="section">
-        <h2>Skills</h2>
-        <p class="skills">${data.relevantSkills?.join(" · ") || data.technologies}</p>
-      </section>
-      <section class="section">
-        <h2>Experience</h2>
-        ${data.experiences.map(exp => `
-          <div class="experience">
-            <div class="exp-title">${exp.title} at ${exp.company}</div>
-            <div class="exp-meta">${exp.location} | ${exp.start} - ${exp.end}</div>
-            <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
-          </div>
-        `).join("")}
-      </section>
-      <section class="section">
-        <h2>Education</h2>
-        ${data.education.map(edu => `<div>${edu.degree} in ${edu.field}, ${edu.school}</div>`).join("")}
-      </section>
+      ${orderedSections}
     </body>
     </html>
   `;
@@ -398,6 +430,51 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
 
 function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#7c3aed";
+  
+  const mainSections: Record<string, string> = {
+    summary: `
+      <section class="section">
+        <h2>Professional Summary</h2>
+        <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>▹ ${l}</li>`).join("")}</ul>
+      </section>
+    `,
+    experience: `
+      <section class="section">
+        <h2>Experience</h2>
+        ${data.experiences.map(exp => `
+          <div class="experience">
+            <div class="exp-header">
+              <span class="exp-title">${exp.title}</span>
+              <span class="exp-dates">${exp.start} - ${exp.end}</span>
+            </div>
+            <div class="exp-company">${exp.company} · ${exp.location}</div>
+            <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
+          </div>
+        `).join("")}
+      </section>
+    `,
+    skills: `
+      <section class="section main-skills">
+        <h2>Technical Skills</h2>
+        <p>${data.relevantSkills?.join(" • ") || data.technologies}</p>
+      </section>
+    `,
+    education: `
+      <section class="section">
+        <h2>Education</h2>
+        ${data.education.map(edu => `
+          <div class="edu-item">
+            <strong>${edu.degree} in ${edu.field}</strong>
+            <div class="edu-school">${edu.school} (${edu.startDate} - ${edu.endDate})</div>
+          </div>
+        `).join("")}
+      </section>
+    `
+  };
+
+  const orderedMainSections = (settings.sectionOrder || defaultSettings.sectionOrder)
+    .map(key => mainSections[key] || "")
+    .join("");
   
   return `
     <!DOCTYPE html>
@@ -442,7 +519,7 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
           margin-bottom: 8px;
           margin-top: 16px;
         }
-        .sidebar .skills {
+        .sidebar .skills-list {
           font-size: 8pt;
           opacity: 0.9;
         }
@@ -464,6 +541,9 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
         .exp-title { font-weight: 600; }
         .exp-dates { font-size: 9pt; color: #9ca3af; }
         .exp-company { color: #6b7280; font-size: 9pt; }
+        .edu-school { color: #6b7280; font-size: 9pt; }
+        .edu-item { margin-bottom: 8px; }
+        .main-skills p { font-size: 9pt; color: #4b5563; }
         ul { padding-left: 18px; margin-top: 6px; }
         li { margin-bottom: 3px; font-size: 9.5pt; }
       </style>
@@ -476,29 +556,11 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
           ${data.profile.phone}<br>
           ${data.profile.location}
         </div>
-        <h3>Skills</h3>
-        <div class="skills">${data.relevantSkills?.slice(0, 8).join("<br>") || data.technologies.split(",").slice(0, 8).join("<br>")}</div>
-        <h3>Education</h3>
-        ${data.education.map(edu => `<div class="skills">${edu.degree}<br>${edu.school}</div>`).join("")}
+        <h3>Quick Skills</h3>
+        <div class="skills-list">${data.relevantSkills?.slice(0, 8).join("<br>") || data.technologies.split(",").slice(0, 8).join("<br>")}</div>
       </aside>
       <main class="main">
-        <section class="section">
-          <h2>Professional Summary</h2>
-          <ul style="list-style:none;padding:0">${data.logline.map(l => `<li>▹ ${l}</li>`).join("")}</ul>
-        </section>
-        <section class="section">
-          <h2>Experience</h2>
-          ${data.experiences.map(exp => `
-            <div class="experience">
-              <div class="exp-header">
-                <span class="exp-title">${exp.title}</span>
-                <span class="exp-dates">${exp.start} - ${exp.end}</span>
-              </div>
-              <div class="exp-company">${exp.company} · ${exp.location}</div>
-              <ul>${exp.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
-            </div>
-          `).join("")}
-        </section>
+        ${orderedMainSections}
       </main>
     </body>
     </html>
@@ -525,7 +587,8 @@ export async function generateResumePDF(data: ResumeData, settings: Partial<Resu
   
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium",
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
   });
   
   const page = await browser.newPage();
@@ -559,73 +622,95 @@ export async function generateResumeDOCX(data: ResumeData, settings: Partial<Res
     new Paragraph({ text: "" })
   );
   
-  children.push(
-    new Paragraph({
-      text: "PROFESSIONAL SUMMARY",
-      heading: HeadingLevel.HEADING_1,
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-    })
-  );
-  data.logline.forEach(line => {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: `• ${line}` })]
-    }));
-  });
-  children.push(new Paragraph({ text: "" }));
+  const sectionGenerators: Record<string, () => Paragraph[]> = {
+    summary: () => {
+      const paras: Paragraph[] = [];
+      paras.push(
+        new Paragraph({
+          text: "PROFESSIONAL SUMMARY",
+          heading: HeadingLevel.HEADING_1,
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+        })
+      );
+      data.logline.forEach(line => {
+        paras.push(new Paragraph({
+          children: [new TextRun({ text: `• ${line}` })]
+        }));
+      });
+      paras.push(new Paragraph({ text: "" }));
+      return paras;
+    },
+    skills: () => {
+      return [
+        new Paragraph({
+          text: "SKILLS",
+          heading: HeadingLevel.HEADING_1,
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+        }),
+        new Paragraph({
+          text: data.relevantSkills?.join(", ") || data.technologies
+        }),
+        new Paragraph({ text: "" })
+      ];
+    },
+    experience: () => {
+      const paras: Paragraph[] = [];
+      paras.push(
+        new Paragraph({
+          text: "EXPERIENCE",
+          heading: HeadingLevel.HEADING_1,
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+        })
+      );
+      data.experiences.forEach(exp => {
+        paras.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: exp.title, bold: true }),
+              new TextRun({ text: ` | ${exp.company}` }),
+              new TextRun({ text: ` | ${exp.start} - ${exp.end}`, italics: true })
+            ]
+          }),
+          new Paragraph({ text: exp.location, spacing: { after: 100 } })
+        );
+        exp.bullets.forEach(bullet => {
+          paras.push(new Paragraph({
+            children: [new TextRun({ text: `• ${bullet}` })]
+          }));
+        });
+        paras.push(new Paragraph({ text: "" }));
+      });
+      return paras;
+    },
+    education: () => {
+      const paras: Paragraph[] = [];
+      paras.push(
+        new Paragraph({
+          text: "EDUCATION",
+          heading: HeadingLevel.HEADING_1,
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+        })
+      );
+      data.education.forEach(edu => {
+        paras.push(new Paragraph({
+          children: [
+            new TextRun({ text: `${edu.degree} in ${edu.field}`, bold: true }),
+            new TextRun({ text: ` - ${edu.school}` }),
+            new TextRun({ text: ` (${edu.startDate} - ${edu.endDate})`, italics: true })
+          ]
+        }));
+      });
+      paras.push(new Paragraph({ text: "" }));
+      return paras;
+    }
+  };
   
-  children.push(
-    new Paragraph({
-      text: "SKILLS",
-      heading: HeadingLevel.HEADING_1,
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-    }),
-    new Paragraph({
-      text: data.relevantSkills?.join(", ") || data.technologies
-    }),
-    new Paragraph({ text: "" })
-  );
-  
-  children.push(
-    new Paragraph({
-      text: "EXPERIENCE",
-      heading: HeadingLevel.HEADING_1,
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-    })
-  );
-  data.experiences.forEach(exp => {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: exp.title, bold: true }),
-          new TextRun({ text: ` | ${exp.company}` }),
-          new TextRun({ text: ` | ${exp.start} - ${exp.end}`, italics: true })
-        ]
-      }),
-      new Paragraph({ text: exp.location, spacing: { after: 100 } })
-    );
-    exp.bullets.forEach(bullet => {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: `• ${bullet}` })]
-      }));
-    });
-    children.push(new Paragraph({ text: "" }));
-  });
-  
-  children.push(
-    new Paragraph({
-      text: "EDUCATION",
-      heading: HeadingLevel.HEADING_1,
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-    })
-  );
-  data.education.forEach(edu => {
-    children.push(new Paragraph({
-      children: [
-        new TextRun({ text: `${edu.degree} in ${edu.field}`, bold: true }),
-        new TextRun({ text: ` - ${edu.school}` }),
-        new TextRun({ text: ` (${edu.startDate} - ${edu.endDate})`, italics: true })
-      ]
-    }));
+  const sectionOrder = mergedSettings.sectionOrder || defaultSettings.sectionOrder;
+  sectionOrder.forEach(section => {
+    const generator = sectionGenerators[section];
+    if (generator) {
+      children.push(...generator());
+    }
   });
 
   const doc = new Document({
