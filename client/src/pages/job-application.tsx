@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, Check, FileText, FileUser } from "lucide-react";
+import { Loader2, Wand2, Copy, Check, FileText, FileUser, Download } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +44,17 @@ export default function JobApplicationPage() {
         if (data.company) form.setValue("companyName", data.company);
         if (data.jobTitle) form.setValue("jobTitle", data.jobTitle);
         if (data.jobDescription) form.setValue("jobDescription", data.jobDescription);
-        if (data.applicationId) savedApplicationRef.current = data.applicationId;
+        if (data.applicationId) {
+          savedApplicationRef.current = data.applicationId;
+          api.getApplication(data.applicationId).then(app => {
+            if (app.generatedResume) {
+              setResume(app.generatedResume);
+            }
+            if (app.generatedCoverLetter) {
+              setCoverLetter({ coverLetter: app.generatedCoverLetter });
+            }
+          }).catch(() => {});
+        }
         sessionStorage.removeItem("prefillApplication");
       } catch (e) {}
     }
@@ -68,48 +78,114 @@ export default function JobApplicationPage() {
     }
   };
 
-  const handleGenerateResume = async (data: JobApplicationInput) => {
+  const handleGenerateBoth = async (data: JobApplicationInput) => {
     if (!profile) {
       toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
       return;
     }
+    
     setIsGeneratingResume(true);
+    setIsGeneratingCoverLetter(true);
+    
     try {
-      const result = await api.generateResume(data);
-      if (!result.logline || !result.experiences || !result.technologies) {
+      let applicationId = savedApplicationRef.current;
+      
+      if (!applicationId) {
+        const app = await api.createApplication({
+          company: data.companyName || "Unknown Company",
+          jobTitle: data.jobTitle || "Unknown Position",
+          jobDescription: data.jobDescription,
+          status: "created"
+        });
+        applicationId = app.id;
+        savedApplicationRef.current = applicationId;
+        queryClient.invalidateQueries({ queryKey: ["applications"] });
+        queryClient.invalidateQueries({ queryKey: ["challenge"] });
+      }
+      
+      const result = await api.generateForApplication(applicationId, data.tone, {
+        jobDescription: data.jobDescription,
+        jobTitle: data.jobTitle,
+        company: data.companyName
+      });
+      
+      if (!result.resume.logline || !result.resume.experiences) {
         throw new Error("Invalid response from AI. Please try again.");
       }
-      setResume(result);
-      await saveApplication(data);
-      toast({ title: "Resume Generated", description: "Your tailored resume is ready and saved to your dashboard." });
+      
+      setResume(result.resume);
+      setCoverLetter({ coverLetter: result.coverLetter });
+      
+      toast({ title: "Generated!", description: "Your tailored resume and cover letter are ready and saved." });
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "Failed to generate resume.", variant: "destructive" });
+      toast({ title: "Error", description: e.message || "Failed to generate materials.", variant: "destructive" });
     } finally {
       setIsGeneratingResume(false);
+      setIsGeneratingCoverLetter(false);
     }
   };
 
+  const handleGenerateResume = async (data: JobApplicationInput) => {
+    await handleGenerateBoth(data);
+  };
+
   const handleGenerateCoverLetter = async (data: JobApplicationInput) => {
-    if (!profile) {
-      toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
-      return;
-    }
-    setIsGeneratingCoverLetter(true);
-    try {
-      const result = await api.generateCoverLetter(data);
-      setCoverLetter(result);
-      await saveApplication(data);
-      toast({ title: "Cover Letter Generated", description: "Your tailored cover letter is ready and saved to your dashboard." });
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message || "Failed to generate cover letter.", variant: "destructive" });
-    } finally {
-      setIsGeneratingCoverLetter(false);
-    }
+    await handleGenerateBoth(data);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied!", description: "Text copied to clipboard." });
+  };
+
+  const downloadResume = () => {
+    if (!resume || !profile) return;
+    
+    const companyName = form.getValues("companyName") || "Company";
+    const jobTitle = form.getValues("jobTitle") || "Position";
+    
+    let content = `${profile.firstName} ${profile.lastName}\n`;
+    content += `${profile.email} | ${profile.phone} | ${profile.location}\n\n`;
+    content += `=== SUMMARY ===\n`;
+    content += (resume.logline || []).map(line => `• ${line}`).join("\n") + "\n\n";
+    content += `=== SKILLS ===\n`;
+    content += `${resume.technologies || ""}\n\n`;
+    if (resume.relevantSkills && resume.relevantSkills.length > 0) {
+      content += `Key Skills: ${resume.relevantSkills.join(", ")}\n\n`;
+    }
+    content += `=== EXPERIENCE ===\n`;
+    (resume.experiences || []).forEach(exp => {
+      content += `\n${exp.title}\n`;
+      content += `${exp.company} | ${exp.location} | ${exp.start} - ${exp.end}\n`;
+      (exp.bullets || []).forEach(bullet => {
+        content += `  • ${bullet}\n`;
+      });
+    });
+    
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Resume_${companyName.replace(/\s+/g, "_")}_${jobTitle.replace(/\s+/g, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Downloaded!", description: "Resume saved as text file." });
+  };
+
+  const downloadCoverLetter = () => {
+    if (!coverLetter) return;
+    
+    const companyName = form.getValues("companyName") || "Company";
+    const jobTitle = form.getValues("jobTitle") || "Position";
+    
+    const blob = new Blob([coverLetter.coverLetter], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `CoverLetter_${companyName.replace(/\s+/g, "_")}_${jobTitle.replace(/\s+/g, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Downloaded!", description: "Cover letter saved as text file." });
   };
 
   if (!profile) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
@@ -205,6 +281,13 @@ export default function JobApplicationPage() {
               </div>
             ) : (
               <div className="space-y-6">
+                <div className="flex justify-end mb-2">
+                  <Button variant="outline" size="sm" onClick={downloadResume} data-testid="button-download-resume">
+                    <Download className="size-4 mr-2" />
+                    Download Resume
+                  </Button>
+                </div>
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg">Logline & Summary</CardTitle>
@@ -274,10 +357,16 @@ export default function JobApplicationPage() {
               <Card className="h-full">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Cover Letter Draft</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => copyToClipboard(coverLetter.coverLetter)}>
-                    <Copy className="size-4 mr-2" />
-                    Copy Text
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(coverLetter.coverLetter)}>
+                      <Copy className="size-4 mr-2" />
+                      Copy
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={downloadCoverLetter} data-testid="button-download-cover-letter">
+                      <Download className="size-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed p-4 bg-muted/20 rounded-md">

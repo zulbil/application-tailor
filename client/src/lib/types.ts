@@ -47,6 +47,7 @@ export interface GeneratedResume {
     bullets: string[];
   }[];
   technologies: string;
+  relevantSkills?: string[];
 }
 
 export interface GeneratedCoverLetter {
@@ -62,6 +63,8 @@ export interface TrackedApplication {
   jobTitle: string;
   jobDescription: string;
   status: ApplicationStatus;
+  generatedResume?: GeneratedResume | null;
+  generatedCoverLetter?: string | null;
   createdAt: string;
   statusUpdatedAt: string;
 }

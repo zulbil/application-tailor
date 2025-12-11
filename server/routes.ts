@@ -23,6 +23,9 @@ const generateResumeSchema = z.object({
 const generateForApplicationSchema = z.object({
   applicationId: z.string(),
   tone: z.enum(["Professional", "Friendly", "Confident"]),
+  jobDescription: z.string().optional(),
+  jobTitle: z.string().optional(),
+  company: z.string().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -309,9 +312,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Please save your profile first" });
       }
 
-      const application = await storage.getJobApplication(req.params.id);
+      let application = await storage.getJobApplication(req.params.id);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (validation.data.jobDescription !== undefined || validation.data.jobTitle !== undefined || validation.data.company !== undefined) {
+        application = await storage.updateJobApplicationDetails(req.params.id, {
+          company: validation.data.company,
+          jobTitle: validation.data.jobTitle,
+          jobDescription: validation.data.jobDescription
+        }) || application;
       }
 
       const jobAppData = {

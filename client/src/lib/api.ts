@@ -117,6 +117,31 @@ export const api = {
     }
   },
 
+  getApplication: async (id: string): Promise<TrackedApplication> => {
+    const response = await fetch(`/api/applications/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch application");
+    return response.json();
+  },
+
+  generateForApplication: async (
+    id: string, 
+    tone: "Professional" | "Friendly" | "Confident",
+    updates?: { jobDescription?: string; jobTitle?: string; company?: string }
+  ): Promise<{ resume: GeneratedResume; coverLetter: string }> => {
+    const response = await fetch(`/api/applications/${id}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tone, ...updates }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to generate application materials");
+    }
+    
+    return response.json();
+  },
+
   getChallenge: async (): Promise<ChallengeData | null> => {
     const response = await fetch("/api/challenge");
     if (!response.ok) throw new Error("Failed to fetch challenge");
