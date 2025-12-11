@@ -60,6 +60,7 @@ export interface ResumeSettings {
   template: "modern" | "classic" | "minimal" | "creative";
   primaryColor: string;
   fontFamily: string;
+  fontSize: "small" | "medium" | "large";
   sectionOrder: string[];
 }
 
@@ -94,10 +95,17 @@ export interface ColorOption {
   name: string;
 }
 
+export interface FontSizeOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface ResumeTemplatesResponse {
   templates: ResumeTemplateInfo[];
   fonts: FontOption[];
   colors: ColorOption[];
+  fontSizes: FontSizeOption[];
 }
 
 export interface WeeklyChallenge {

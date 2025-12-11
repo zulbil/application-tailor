@@ -34,6 +34,7 @@ export interface ResumeSettings {
   template: "modern" | "classic" | "minimal" | "creative";
   primaryColor: string;
   fontFamily: string;
+  fontSize: "small" | "medium" | "large";
   sectionOrder: string[];
 }
 
@@ -41,7 +42,14 @@ const defaultSettings: ResumeSettings = {
   template: "modern",
   primaryColor: "#0f766e",
   fontFamily: "Inter",
+  fontSize: "medium",
   sectionOrder: ["summary", "skills", "experience", "education"]
+};
+
+const fontSizeMap: Record<string, { body: string; heading: string; title: string; small: string }> = {
+  small: { body: "9pt", heading: "10pt", title: "18pt", small: "8pt" },
+  medium: { body: "11pt", heading: "12pt", title: "24pt", small: "10pt" },
+  large: { body: "12pt", heading: "14pt", title: "28pt", small: "11pt" }
 };
 
 const fontFamilies: Record<string, string> = {
@@ -56,6 +64,7 @@ const fontFamilies: Record<string, string> = {
 function generateModernHTML(data: ResumeData, settings: ResumeSettings): string {
   const font = fontFamilies[settings.fontFamily] || fontFamilies["Inter"];
   const color = settings.primaryColor || "#0f766e";
+  const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
   
   const sections: Record<string, string> = {
     summary: `
@@ -122,7 +131,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: ${font};
-          font-size: 11pt;
+          font-size: ${sizes.body};
           line-height: 1.5;
           color: #1f2937;
           padding: 40px 50px;
@@ -135,17 +144,17 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
           border-bottom: 2px solid ${color};
         }
         h1 {
-          font-size: 24pt;
+          font-size: ${sizes.title};
           font-weight: 700;
           color: ${color};
           margin-bottom: 8px;
         }
         .contact {
-          font-size: 10pt;
+          font-size: ${sizes.small};
           color: #6b7280;
         }
         .headline {
-          font-size: 11pt;
+          font-size: ${sizes.body};
           color: #374151;
           margin-top: 8px;
         }
@@ -153,7 +162,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
           margin-bottom: 20px;
         }
         h2 {
-          font-size: 12pt;
+          font-size: ${sizes.heading};
           font-weight: 600;
           color: ${color};
           text-transform: uppercase;
@@ -178,7 +187,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
           color: ${color};
         }
         .skills {
-          font-size: 10pt;
+          font-size: ${sizes.small};
           color: #4b5563;
         }
         .experience, .education {
@@ -194,11 +203,11 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
           margin-left: 8px;
         }
         .dates {
-          font-size: 10pt;
+          font-size: ${sizes.small};
           color: #9ca3af;
         }
         .location {
-          font-size: 10pt;
+          font-size: ${sizes.small};
           color: #9ca3af;
           margin-bottom: 6px;
         }
@@ -208,7 +217,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
         }
         li {
           margin-bottom: 4px;
-          font-size: 10.5pt;
+          font-size: ${sizes.body};
         }
       </style>
     </head>
@@ -226,6 +235,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
 
 function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string {
   const font = "'Times New Roman', serif";
+  const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
   
   const sections: Record<string, string> = {
     summary: `
@@ -280,7 +290,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: ${font};
-          font-size: 11pt;
+          font-size: ${sizes.body};
           line-height: 1.6;
           color: #000;
           padding: 48px 60px;
@@ -290,18 +300,18 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
           margin-bottom: 20px;
         }
         h1 {
-          font-size: 20pt;
+          font-size: ${sizes.title};
           font-weight: bold;
           margin-bottom: 6px;
         }
         .contact {
-          font-size: 10pt;
+          font-size: ${sizes.small};
         }
         .section {
           margin-bottom: 16px;
         }
         h2 {
-          font-size: 11pt;
+          font-size: ${sizes.heading};
           font-weight: bold;
           text-transform: uppercase;
           border-bottom: 1px solid #000;
@@ -320,7 +330,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
           margin-top: 4px;
         }
         li { margin-bottom: 2px; }
-        .skills { font-size: 10pt; }
+        .skills { font-size: ${sizes.small}; }
       </style>
     </head>
     <body>
@@ -336,6 +346,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
 
 function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#374151";
+  const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
   
   const sections: Record<string, string> = {
     summary: `
@@ -384,25 +395,25 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: 'Inter', sans-serif;
-          font-size: 10pt;
+          font-size: ${sizes.body};
           line-height: 1.5;
           color: #374151;
           padding: 40px;
         }
         .header { margin-bottom: 24px; }
         h1 {
-          font-size: 18pt;
+          font-size: ${sizes.title};
           font-weight: 600;
           color: ${color};
         }
         .contact {
-          font-size: 9pt;
+          font-size: ${sizes.small};
           color: #6b7280;
           margin-top: 4px;
         }
         .section { margin-bottom: 18px; }
         h2 {
-          font-size: 9pt;
+          font-size: ${sizes.heading};
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.1em;
@@ -411,10 +422,10 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
         }
         .experience { margin-bottom: 12px; }
         .exp-title { font-weight: 500; }
-        .exp-meta { font-size: 9pt; color: #9ca3af; }
+        .exp-meta { font-size: ${sizes.small}; color: #9ca3af; }
         ul { padding-left: 16px; margin-top: 4px; }
-        li { margin-bottom: 2px; font-size: 9.5pt; }
-        .skills { font-size: 9pt; color: #6b7280; }
+        li { margin-bottom: 2px; font-size: ${sizes.body}; }
+        .skills { font-size: ${sizes.small}; color: #6b7280; }
       </style>
     </head>
     <body>
@@ -430,6 +441,7 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
 
 function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): string {
   const color = settings.primaryColor || "#7c3aed";
+  const sizes = fontSizeMap[settings.fontSize] || fontSizeMap.medium;
   
   const mainSections: Record<string, string> = {
     summary: `
@@ -486,7 +498,7 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: 'Poppins', sans-serif;
-          font-size: 10pt;
+          font-size: ${sizes.body};
           line-height: 1.6;
           color: #1f2937;
           display: flex;
@@ -503,28 +515,28 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
           padding: 30px 40px;
         }
         .sidebar h1 {
-          font-size: 16pt;
+          font-size: ${sizes.title};
           font-weight: 700;
           margin-bottom: 6px;
         }
         .sidebar .contact {
-          font-size: 8pt;
+          font-size: ${sizes.small};
           opacity: 0.9;
           margin-bottom: 20px;
         }
         .sidebar h3 {
-          font-size: 9pt;
+          font-size: ${sizes.small};
           text-transform: uppercase;
           letter-spacing: 0.1em;
           margin-bottom: 8px;
           margin-top: 16px;
         }
         .sidebar .skills-list {
-          font-size: 8pt;
+          font-size: ${sizes.small};
           opacity: 0.9;
         }
         .main h2 {
-          font-size: 11pt;
+          font-size: ${sizes.heading};
           font-weight: 600;
           color: ${color};
           margin-bottom: 12px;
@@ -539,13 +551,13 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
           align-items: baseline;
         }
         .exp-title { font-weight: 600; }
-        .exp-dates { font-size: 9pt; color: #9ca3af; }
-        .exp-company { color: #6b7280; font-size: 9pt; }
-        .edu-school { color: #6b7280; font-size: 9pt; }
+        .exp-dates { font-size: ${sizes.small}; color: #9ca3af; }
+        .exp-company { color: #6b7280; font-size: ${sizes.small}; }
+        .edu-school { color: #6b7280; font-size: ${sizes.small}; }
         .edu-item { margin-bottom: 8px; }
-        .main-skills p { font-size: 9pt; color: #4b5563; }
+        .main-skills p { font-size: ${sizes.small}; color: #4b5563; }
         ul { padding-left: 18px; margin-top: 6px; }
-        li { margin-bottom: 3px; font-size: 9.5pt; }
+        li { margin-bottom: 3px; font-size: ${sizes.body}; }
       </style>
     </head>
     <body>
@@ -744,4 +756,10 @@ export const colorOptions = [
   { id: "#059669", name: "Green" },
   { id: "#374151", name: "Gray" },
   { id: "#000000", name: "Black" }
+];
+
+export const fontSizeOptions = [
+  { id: "small", name: "Small", description: "Compact text for more content" },
+  { id: "medium", name: "Medium", description: "Standard readable size" },
+  { id: "large", name: "Large", description: "Larger text for emphasis" }
 ];

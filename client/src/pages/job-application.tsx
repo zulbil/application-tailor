@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +44,7 @@ const defaultSettings: ResumeSettings = {
   template: "modern",
   primaryColor: "#0f766e",
   fontFamily: "Inter",
+  fontSize: "medium",
   sectionOrder: ["summary", "skills", "experience", "education"]
 };
 
@@ -61,6 +62,10 @@ export default function JobApplicationPage() {
   const [settings, setSettings] = useState<ResumeSettings>(defaultSettings);
   const [showCustomize, setShowCustomize] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [isEditingResume, setIsEditingResume] = useState(false);
+  const [isEditingCoverLetter, setIsEditingCoverLetter] = useState(false);
+  const [editedLogline, setEditedLogline] = useState<string[]>([]);
+  const [editedCoverLetter, setEditedCoverLetter] = useState("");
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -127,6 +132,58 @@ export default function JobApplicationPage() {
       const newIndex = settings.sectionOrder.indexOf(over.id as string);
       const newOrder = arrayMove(settings.sectionOrder, oldIndex, newIndex);
       updateSettings({ sectionOrder: newOrder });
+    }
+  };
+
+  const startEditingResume = () => {
+    if (resume) {
+      setEditedLogline([...(resume.logline || [])]);
+      setIsEditingResume(true);
+    }
+  };
+
+  const cancelEditingResume = () => {
+    setIsEditingResume(false);
+    setEditedLogline([]);
+  };
+
+  const saveResumeEdits = async () => {
+    if (!savedApplicationRef.current || !resume) return;
+    
+    try {
+      const updatedResume = { ...resume, logline: editedLogline };
+      await api.updateResumeContent(savedApplicationRef.current, updatedResume);
+      setResume(updatedResume);
+      setIsEditingResume(false);
+      setPreviewKey(prev => prev + 1);
+      toast({ title: "Saved", description: "Resume content updated." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const startEditingCoverLetter = () => {
+    if (coverLetter) {
+      setEditedCoverLetter(coverLetter.coverLetter);
+      setIsEditingCoverLetter(true);
+    }
+  };
+
+  const cancelEditingCoverLetter = () => {
+    setIsEditingCoverLetter(false);
+    setEditedCoverLetter("");
+  };
+
+  const saveCoverLetterEdits = async () => {
+    if (!savedApplicationRef.current) return;
+    
+    try {
+      await api.updateCoverLetterContent(savedApplicationRef.current, editedCoverLetter);
+      setCoverLetter({ coverLetter: editedCoverLetter });
+      setIsEditingCoverLetter(false);
+      toast({ title: "Saved", description: "Cover letter updated." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
     }
   };
 
@@ -418,6 +475,25 @@ export default function JobApplicationPage() {
                         <Separator />
                         
                         <div className="space-y-3">
+                          <Label className="text-base font-semibold">Font Size</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(templates?.fontSizes || []).map(s => (
+                              <button
+                                key={s.id}
+                                className={`p-3 border-2 rounded-lg text-center transition-all ${settings.fontSize === s.id ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"}`}
+                                onClick={() => updateSettings({ fontSize: s.id as any })}
+                                data-testid={`fontsize-${s.id}`}
+                              >
+                                <div className="font-medium text-sm">{s.name}</div>
+                                <div className="text-xs text-muted-foreground">{s.description}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-3">
                           <Label className="text-base font-semibold">Section Order</Label>
                           <p className="text-sm text-muted-foreground">Drag to reorder sections on your resume</p>
                           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -480,16 +556,60 @@ export default function JobApplicationPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg">Logline & Summary</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard((resume.logline || []).join("\n"))}>
-                      <Copy className="size-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {isEditingResume ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={saveResumeEdits} data-testid="button-save-logline">
+                            <Save className="size-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEditingResume}>
+                            <X className="size-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={startEditingResume} data-testid="button-edit-logline">
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard((resume.logline || []).join("\n"))}>
+                            <Copy className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <ul className="list-disc list-outside ml-4 space-y-1 text-sm text-foreground/90">
-                      {(resume.logline || []).map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ul>
+                    {isEditingResume ? (
+                      <div className="space-y-2">
+                        {editedLogline.map((line, i) => (
+                          <Textarea
+                            key={i}
+                            value={line}
+                            onChange={(e) => {
+                              const newLogline = [...editedLogline];
+                              newLogline[i] = e.target.value;
+                              setEditedLogline(newLogline);
+                            }}
+                            className="min-h-[60px] text-sm"
+                            placeholder={`Bullet point ${i + 1}`}
+                          />
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditedLogline([...editedLogline, ""])}
+                          className="w-full"
+                        >
+                          Add bullet point
+                        </Button>
+                      </div>
+                    ) : (
+                      <ul className="list-disc list-outside ml-4 space-y-1 text-sm text-foreground/90">
+                        {(resume.logline || []).map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -547,20 +667,48 @@ export default function JobApplicationPage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Cover Letter Draft</CardTitle>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(coverLetter.coverLetter)}>
-                      <Copy className="size-4 mr-2" />
-                      Copy
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={downloadCoverLetter} data-testid="button-download-cover-letter">
-                      <Download className="size-4 mr-2" />
-                      Download
-                    </Button>
+                    {isEditingCoverLetter ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={saveCoverLetterEdits} data-testid="button-save-cover-letter">
+                          <Save className="size-4 mr-2" />
+                          Save
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={cancelEditingCoverLetter}>
+                          <X className="size-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="outline" size="sm" onClick={startEditingCoverLetter} data-testid="button-edit-cover-letter">
+                          <Pencil className="size-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(coverLetter.coverLetter)}>
+                          <Copy className="size-4 mr-2" />
+                          Copy
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={downloadCoverLetter} data-testid="button-download-cover-letter">
+                          <Download className="size-4 mr-2" />
+                          Download
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed p-4 bg-muted/20 rounded-md">
-                    {coverLetter.coverLetter}
-                  </div>
+                  {isEditingCoverLetter ? (
+                    <Textarea
+                      value={editedCoverLetter}
+                      onChange={(e) => setEditedCoverLetter(e.target.value)}
+                      className="min-h-[400px] font-serif text-sm leading-relaxed"
+                      placeholder="Edit your cover letter..."
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed p-4 bg-muted/20 rounded-md">
+                      {coverLetter.coverLetter}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

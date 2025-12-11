@@ -208,4 +208,34 @@ export const api = {
   getResumeDocxUrl: (id: string): string => {
     return `/api/applications/${id}/resume.docx`;
   },
+
+  updateResumeContent: async (id: string, resume: any): Promise<TrackedApplication> => {
+    const response = await fetch(`/api/applications/${id}/content`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resume }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to update resume content");
+    }
+    
+    return response.json();
+  },
+
+  updateCoverLetterContent: async (id: string, coverLetter: string): Promise<TrackedApplication> => {
+    const response = await fetch(`/api/applications/${id}/content`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coverLetter }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to update cover letter");
+    }
+    
+    return response.json();
+  },
 };

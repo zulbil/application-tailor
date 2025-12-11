@@ -6,7 +6,7 @@ import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTailoredResume, generateCoverLetter } from "./openai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
+import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, fontSizeOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
 
 const saveProfileSchema = z.object({
   profile: insertProfileSchema,
@@ -41,6 +41,7 @@ const resumeSettingsSchema = z.object({
   template: z.enum(["modern", "classic", "minimal", "creative"]).optional(),
   primaryColor: z.string().optional(),
   fontFamily: z.string().optional(),
+  fontSize: z.enum(["small", "medium", "large"]).optional(),
   sectionOrder: z.array(z.string()).optional(),
 });
 
@@ -525,7 +526,8 @@ export async function registerRoutes(
     return res.json({
       templates: resumeTemplates,
       fonts: fontOptions,
-      colors: colorOptions
+      colors: colorOptions,
+      fontSizes: fontSizeOptions
     });
   });
 
@@ -546,6 +548,38 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating resume settings:", error);
       return res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  app.patch("/api/applications/:id/content", isAuthenticated, async (req: any, res) => {
+    try {
+      const { resume, coverLetter } = req.body;
+      
+      if (resume === undefined && coverLetter === undefined) {
+        return res.status(400).json({ error: "Must provide resume or coverLetter to update" });
+      }
+      
+      const application = await storage.getJobApplication(req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      const updatedResume = resume !== undefined ? resume : application.generatedResume;
+      const updatedCoverLetter = coverLetter !== undefined ? coverLetter : (application.generatedCoverLetter || "");
+
+      const updated = await storage.updateJobApplicationGeneratedContent(
+        req.params.id,
+        updatedResume,
+        updatedCoverLetter
+      );
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Failed to update content" });
+      }
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating content:", error);
+      return res.status(500).json({ error: "Failed to update content" });
     }
   });
 
