@@ -70,6 +70,8 @@ export const jobApplications = pgTable("job_applications", {
   jobTitle: text("job_title").notNull(),
   jobDescription: text("job_description").notNull(),
   status: text("status").notNull().default("created"),
+  generatedResume: jsonb("generated_resume"),
+  generatedCoverLetter: text("generated_cover_letter"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   statusUpdatedAt: timestamp("status_updated_at").notNull().defaultNow(),
 });
