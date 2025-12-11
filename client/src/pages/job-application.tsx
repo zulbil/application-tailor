@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff } from "lucide-react";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -133,6 +133,10 @@ export default function JobApplicationPage() {
   const [isEditingCoverLetter, setIsEditingCoverLetter] = useState(false);
   const [editedLogline, setEditedLogline] = useState<string[]>([]);
   const [editedCoverLetter, setEditedCoverLetter] = useState("");
+  const [isEditingSkills, setIsEditingSkills] = useState(false);
+  const [editedSkills, setEditedSkills] = useState("");
+  const [isEditingExperience, setIsEditingExperience] = useState(false);
+  const [editedExperiences, setEditedExperiences] = useState<GeneratedResume["experiences"]>([]);
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -261,6 +265,91 @@ export default function JobApplicationPage() {
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
+  };
+
+  const startEditingSkills = () => {
+    if (resume) {
+      setEditedSkills(resume.relevantSkills?.join(", ") || resume.technologies || "");
+      setIsEditingSkills(true);
+    }
+  };
+
+  const cancelEditingSkills = () => {
+    setIsEditingSkills(false);
+    setEditedSkills("");
+  };
+
+  const saveSkillsEdits = async () => {
+    if (!savedApplicationRef.current || !resume) return;
+    
+    try {
+      const skillsArray = editedSkills.split(",").map(s => s.trim()).filter(Boolean);
+      const updatedResume = { ...resume, relevantSkills: skillsArray, technologies: editedSkills };
+      await api.updateResumeContent(savedApplicationRef.current, updatedResume);
+      setResume(updatedResume);
+      setIsEditingSkills(false);
+      setPreviewKey(prev => prev + 1);
+      toast({ title: "Saved", description: "Skills updated." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const startEditingExperience = () => {
+    if (resume) {
+      setEditedExperiences([...resume.experiences]);
+      setIsEditingExperience(true);
+    }
+  };
+
+  const cancelEditingExperience = () => {
+    setIsEditingExperience(false);
+    setEditedExperiences([]);
+  };
+
+  const saveExperienceEdits = async () => {
+    if (!savedApplicationRef.current || !resume) return;
+    
+    try {
+      const updatedResume = { ...resume, experiences: editedExperiences };
+      await api.updateResumeContent(savedApplicationRef.current, updatedResume);
+      setResume(updatedResume);
+      setIsEditingExperience(false);
+      setPreviewKey(prev => prev + 1);
+      toast({ title: "Saved", description: "Experience updated." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const updateExperienceField = (index: number, field: string, value: string) => {
+    const updated = [...editedExperiences];
+    (updated[index] as any)[field] = value;
+    setEditedExperiences(updated);
+  };
+
+  const updateExperienceBullet = (expIndex: number, bulletIndex: number, value: string) => {
+    const updated = [...editedExperiences];
+    updated[expIndex].bullets[bulletIndex] = value;
+    setEditedExperiences(updated);
+  };
+
+  const addExperienceBullet = (expIndex: number) => {
+    const updated = [...editedExperiences];
+    updated[expIndex].bullets.push("");
+    setEditedExperiences(updated);
+  };
+
+  const removeExperienceBullet = (expIndex: number, bulletIndex: number) => {
+    const updated = [...editedExperiences];
+    updated[expIndex].bullets.splice(bulletIndex, 1);
+    setEditedExperiences(updated);
+  };
+
+  const removeExperience = (index: number) => {
+    const updated = [...editedExperiences];
+    updated.splice(index, 1);
+    setEditedExperiences(updated);
   };
 
   const saveApplication = async (data: JobApplicationInput) => {
@@ -692,41 +781,171 @@ export default function JobApplicationPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-lg">Relevant Skills</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(resume.technologies || "")}>
-                      <Copy className="size-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      {isEditingSkills ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={saveSkillsEdits}>
+                            <Save className="size-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEditingSkills}>
+                            <X className="size-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={startEditingSkills} data-testid="button-edit-skills">
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard(resume.technologies || "")}>
+                            <Copy className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm font-medium">{resume.technologies || "No technologies found"}</p>
+                    {isEditingSkills ? (
+                      <Textarea
+                        value={editedSkills}
+                        onChange={(e) => setEditedSkills(e.target.value)}
+                        placeholder="Enter skills separated by commas..."
+                        className="text-sm"
+                        rows={3}
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{resume.relevantSkills?.join(", ") || resume.technologies || "No skills found"}</p>
+                    )}
                   </CardContent>
                 </Card>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-serif font-semibold">Experience</h3>
+                    <div className="flex gap-1">
+                      {isEditingExperience ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={saveExperienceEdits}>
+                            <Save className="size-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEditingExperience}>
+                            <X className="size-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={startEditingExperience} data-testid="button-edit-experience">
+                          <Pencil className="size-4 mr-1" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  {(resume.experiences || []).map((exp, i) => (
-                    <Card key={i}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
+                  {isEditingExperience ? (
+                    editedExperiences.map((exp, i) => (
+                      <Card key={i} className="relative">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => removeExperience(i)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">Job Title</Label>
+                              <Input
+                                value={exp.title}
+                                onChange={(e) => updateExperienceField(i, "title", e.target.value)}
+                                placeholder="Job Title"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Company</Label>
+                              <Input
+                                value={exp.company}
+                                onChange={(e) => updateExperienceField(i, "company", e.target.value)}
+                                placeholder="Company"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs">Location</Label>
+                              <Input
+                                value={exp.location}
+                                onChange={(e) => updateExperienceField(i, "location", e.target.value)}
+                                placeholder="Location"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Start</Label>
+                              <Input
+                                value={exp.start}
+                                onChange={(e) => updateExperienceField(i, "start", e.target.value)}
+                                placeholder="Start Date"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">End</Label>
+                              <Input
+                                value={exp.end}
+                                onChange={(e) => updateExperienceField(i, "end", e.target.value)}
+                                placeholder="End Date"
+                              />
+                            </div>
+                          </div>
                           <div>
-                            <CardTitle className="text-base">{exp.title}</CardTitle>
-                            <CardDescription>{exp.company} • {exp.location}</CardDescription>
+                            <Label className="text-xs">Accomplishments</Label>
+                            <div className="space-y-2 mt-1">
+                              {exp.bullets.map((bullet, j) => (
+                                <div key={j} className="flex gap-1">
+                                  <Input
+                                    value={bullet}
+                                    onChange={(e) => updateExperienceBullet(i, j, e.target.value)}
+                                    placeholder="Accomplishment..."
+                                    className="flex-1"
+                                  />
+                                  <Button variant="ghost" size="sm" onClick={() => removeExperienceBullet(i, j)}>
+                                    <X className="size-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button variant="outline" size="sm" onClick={() => addExperienceBullet(i)}>
+                                <Plus className="size-4 mr-1" />
+                                Add Bullet
+                              </Button>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {exp.start} - {exp.end}
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    (resume.experiences || []).map((exp, i) => (
+                      <Card key={i}>
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-base">{exp.title}</CardTitle>
+                              <CardDescription>{exp.company} • {exp.location}</CardDescription>
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {exp.start} - {exp.end}
+                            </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="list-disc list-outside ml-4 space-y-1.5 text-sm text-foreground/90">
-                          {(exp.bullets || []).map((bullet, j) => (
-                            <li key={j}>{bullet}</li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="list-disc list-outside ml-4 space-y-1.5 text-sm text-foreground/90">
+                            {(exp.bullets || []).map((bullet, j) => (
+                              <li key={j}>{bullet}</li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
               </div>
             )}
