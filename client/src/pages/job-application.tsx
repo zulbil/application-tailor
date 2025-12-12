@@ -648,61 +648,67 @@ export default function JobApplicationPage() {
 
         {/* Gap Analysis Warning Dialog */}
         <Dialog open={showGapWarning} onOpenChange={setShowGapWarning}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
+          <DialogContent className="max-w-lg max-h-[500px] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-2 text-orange-600">
                 <AlertTriangle className="size-5" />
                 Low Job Match Detected
               </DialogTitle>
             </DialogHeader>
             {gapAnalysis && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                   <div>
-                    <div className="text-sm text-muted-foreground">Match Score</div>
-                    <div className="text-3xl font-bold text-orange-600">{gapAnalysis.gapAnalysis.jobMatch}%</div>
+                    <div className="text-xs text-muted-foreground">Match</div>
+                    <div className="text-2xl font-bold text-orange-600">{gapAnalysis.gapAnalysis.jobMatch}%</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Interview Probability</div>
-                    <div className="text-2xl font-semibold text-orange-600">{gapAnalysis.gapAnalysis.interviewProbability}%</div>
+                    <div className="text-xs text-muted-foreground">Interview Odds</div>
+                    <div className="text-xl font-semibold text-orange-600">{gapAnalysis.gapAnalysis.interviewProbability}%</div>
                   </div>
                 </div>
 
-                <p className="text-sm text-muted-foreground">{gapAnalysis.gapAnalysis.recommendationReason}</p>
+                <p className="text-xs text-muted-foreground">{gapAnalysis.gapAnalysis.recommendationReason}</p>
 
                 {gapAnalysis.gapAnalysis.criticalGaps.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 text-red-600">
-                      <XCircle className="size-4" /> Critical Gaps
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium flex items-center gap-1 text-red-600">
+                      <XCircle className="size-3" /> Critical Gaps ({gapAnalysis.gapAnalysis.criticalGaps.length})
                     </div>
-                    <ul className="text-sm space-y-1 pl-6">
-                      {gapAnalysis.gapAnalysis.criticalGaps.map((gap, i) => (
+                    <ul className="text-xs space-y-0.5 pl-4">
+                      {gapAnalysis.gapAnalysis.criticalGaps.slice(0, 3).map((gap, i) => (
                         <li key={i} className="list-disc text-red-600">{gap}</li>
                       ))}
+                      {gapAnalysis.gapAnalysis.criticalGaps.length > 3 && (
+                        <li className="list-none text-muted-foreground">+{gapAnalysis.gapAnalysis.criticalGaps.length - 3} more</li>
+                      )}
                     </ul>
                   </div>
                 )}
 
                 {gapAnalysis.gapAnalysis.strongMatches.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 text-green-600">
-                      <CheckCircle className="size-4" /> Your Strengths
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium flex items-center gap-1 text-green-600">
+                      <CheckCircle className="size-3" /> Strengths ({gapAnalysis.gapAnalysis.strongMatches.length})
                     </div>
-                    <ul className="text-sm space-y-1 pl-6">
-                      {gapAnalysis.gapAnalysis.strongMatches.map((match, i) => (
+                    <ul className="text-xs space-y-0.5 pl-4">
+                      {gapAnalysis.gapAnalysis.strongMatches.slice(0, 3).map((match, i) => (
                         <li key={i} className="list-disc text-green-600">{match}</li>
                       ))}
+                      {gapAnalysis.gapAnalysis.strongMatches.length > 3 && (
+                        <li className="list-none text-muted-foreground">+{gapAnalysis.gapAnalysis.strongMatches.length - 3} more</li>
+                      )}
                     </ul>
                   </div>
                 )}
 
                 {gapAnalysis.gapAnalysis.suggestedActions.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 text-blue-600">
-                      <Lightbulb className="size-4" /> Suggested Actions
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium flex items-center gap-1 text-blue-600">
+                      <Lightbulb className="size-3" /> Actions
                     </div>
-                    <ul className="text-sm space-y-1 pl-6">
-                      {gapAnalysis.gapAnalysis.suggestedActions.map((action, i) => (
+                    <ul className="text-xs space-y-0.5 pl-4">
+                      {gapAnalysis.gapAnalysis.suggestedActions.slice(0, 2).map((action, i) => (
                         <li key={i} className="list-disc">{action}</li>
                       ))}
                     </ul>
@@ -710,44 +716,33 @@ export default function JobApplicationPage() {
                 )}
 
                 {gapAnalysis.gapAnalysis.betterJobMatches.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 text-emerald-600">
-                      <Target className="size-4" /> Better Job Matches For You
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium flex items-center gap-1 text-emerald-600">
+                      <Target className="size-3" /> Better Matches
                     </div>
-                    <ul className="text-sm space-y-1 pl-6">
-                      {gapAnalysis.gapAnalysis.betterJobMatches.map((job, i) => (
-                        <li key={i} className="list-disc">{job}</li>
-                      ))}
-                    </ul>
+                    <p className="text-xs pl-4">{gapAnalysis.gapAnalysis.betterJobMatches.slice(0, 2).join(", ")}</p>
                   </div>
                 )}
-
-                {gapAnalysis.gapAnalysis.timeToBeQualified && gapAnalysis.gapAnalysis.timeToBeQualified !== "N/A" && (
-                  <p className="text-xs text-muted-foreground italic">
-                    Time to qualify: {gapAnalysis.gapAnalysis.timeToBeQualified}
-                  </p>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <Button variant="outline" className="flex-1" onClick={handleSkipJob} data-testid="button-skip-job">
-                    <X className="size-4 mr-2" />
-                    Skip This Job
-                  </Button>
-                  <Button 
-                    className="flex-1" 
-                    onClick={handleGenerateAnyway}
-                    disabled={isGeneratingResume}
-                    data-testid="button-generate-anyway"
-                  >
-                    {isGeneratingResume ? (
-                      <><Loader2 className="size-4 mr-2 animate-spin" /> Generating...</>
-                    ) : (
-                      <><ArrowRight className="size-4 mr-2" /> Generate Anyway</>
-                    )}
-                  </Button>
-                </div>
               </div>
             )}
+            <div className="flex gap-3 pt-3 flex-shrink-0 border-t">
+              <Button variant="outline" className="flex-1" onClick={handleSkipJob} data-testid="button-skip-job">
+                <X className="size-4 mr-2" />
+                Skip
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleGenerateAnyway}
+                disabled={isGeneratingResume}
+                data-testid="button-generate-anyway"
+              >
+                {isGeneratingResume ? (
+                  <><Loader2 className="size-4 mr-2 animate-spin" /> Generating...</>
+                ) : (
+                  <><ArrowRight className="size-4 mr-2" /> Generate Anyway</>
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
