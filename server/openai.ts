@@ -1,10 +1,19 @@
 import OpenAI from "openai";
+import { config } from "./config";
 
 // This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-});
+// The client is constructed lazily so importing this module never has side effects
+// (keeps tests and tooling from crashing when AI env vars are absent).
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      baseURL: config.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: config.AI_INTEGRATIONS_OPENAI_API_KEY,
+    });
+  }
+  return _openai;
+}
 
 export interface ProfileData {
   firstName: string;
@@ -347,8 +356,8 @@ Generate the strategic, tailored resume now.`;
 
   console.log("Calling OpenAI for strategic resume generation...");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await getOpenAI().chat.completions.create({
+    model: config.AI_MODEL,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userMessage },
@@ -598,8 +607,8 @@ Generate the personalized, compelling cover letter now.`;
 
   console.log("Calling OpenAI for cover letter generation...");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await getOpenAI().chat.completions.create({
+    model: config.AI_MODEL,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userMessage },
@@ -703,8 +712,8 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
 
   console.log("Calling OpenAI for resume ranking evaluation...");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await getOpenAI().chat.completions.create({
+    model: config.AI_MODEL,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userMessage },
@@ -831,8 +840,8 @@ Return valid JSON only.`;
 
   console.log("Calling OpenAI for gap analysis...");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await getOpenAI().chat.completions.create({
+    model: config.AI_MODEL,
     messages: [
       { role: "system", content: systemMessage },
       { role: "user", content: userMessage },

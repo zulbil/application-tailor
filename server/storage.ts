@@ -22,11 +22,12 @@ import {
   type UpsertUser
 } from "@shared/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
+import { config } from "./config";
 
 const { Pool } = pg;
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: config.DATABASE_URL,
 });
 
 const db = drizzle(pool);

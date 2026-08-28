@@ -1,11 +1,10 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { type Server } from "http";
-import { storage } from "./storage";
+import type { IStorage } from "./storage";
 import { insertProfileSchema, insertExperienceSchema, insertEducationSchema, applicationStatusEnum } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { generateTailoredResume, generateCoverLetter, evaluateResumeRanking, analyzeJobFitGap } from "./openai";
-import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateResumePDF, generateResumeDOCX, generateResumeHTML, resumeTemplates, fontOptions, colorOptions, fontSizeOptions, type ResumeData, type ResumeSettings } from "./resumeGenerator";
 
 const saveProfileSchema = z.object({
@@ -58,12 +57,41 @@ const createApplicationSchema = z.object({
   status: z.enum(applicationStatusEnum).optional(),
 });
 
+export interface RegisterRoutesDeps {
+  storage: IStorage;
+  setupAuth: (app: Express) => Promise<void>;
+  isAuthenticated: RequestHandler;
+}
+
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
+  deps: Partial<RegisterRoutesDeps> = {},
 ): Promise<Server> {
-  
+  // Real implementations are loaded lazily so tests can inject fakes without
+  // pulling in the database pool or the Replit OIDC client.
+  const storage = deps.storage ?? (await import("./storage")).storage;
+  const setupAuth = deps.setupAuth ?? (await import("./replitAuth")).setupAuth;
+  const isAuthenticated =
+    deps.isAuthenticated ?? (await import("./replitAuth")).isAuthenticated;
+
   await setupAuth(app);
+
+  /**
+   * Loads an application only if it belongs to the authenticated user's profile.
+   * `application` is null when the profile is missing, the application does not
+   * exist, OR it is owned by someone else. Callers respond 404 in every case so
+   * a non-owner can never distinguish "not found" from "not yours".
+   */
+  const loadOwnedApplication = async (userId: string, applicationId: string) => {
+    const profileData = await storage.getProfileByUserId(userId);
+    if (!profileData) return { profileData: null, application: null };
+    const application = await storage.getJobApplication(applicationId);
+    if (!application || application.profileId !== profileData.profile.id) {
+      return { profileData, application: null };
+    }
+    return { profileData, application };
+  };
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
@@ -354,7 +382,7 @@ export async function registerRoutes(
 
   app.get("/api/applications/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const application = await storage.getJobApplication(req.params.id);
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
@@ -375,13 +403,13 @@ export async function registerRoutes(
       }
 
       const userId = req.user.claims.sub;
-      const profileData = await storage.getProfileByUserId(userId);
-      
+      const { profileData, application: ownedApplication } = await loadOwnedApplication(userId, req.params.id);
+
       if (!profileData) {
         return res.status(400).json({ error: "Please save your profile first" });
       }
 
-      let application = await storage.getJobApplication(req.params.id);
+      let application = ownedApplication;
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
@@ -497,13 +525,18 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/applications/:id/status", isAuthenticated, async (req, res) => {
+  app.patch("/api/applications/:id/status", isAuthenticated, async (req: any, res) => {
     try {
       const validation = updateStatusSchema.safeParse(req.body);
-      
+
       if (!validation.success) {
         const errorMessage = fromZodError(validation.error).message;
         return res.status(400).json({ error: errorMessage });
+      }
+
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
       }
 
       const updated = await storage.updateJobApplicationStatus(req.params.id, validation.data.status);
@@ -517,8 +550,12 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/applications/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/applications/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
       const deleted = await storage.deleteJobApplication(req.params.id);
       if (!deleted) {
         return res.status(404).json({ error: "Application not found" });
@@ -600,6 +637,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: errorMessage });
       }
 
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
       const updated = await storage.updateJobApplicationSettings(req.params.id, validation.data);
       if (!updated) {
         return res.status(404).json({ error: "Application not found" });
@@ -619,7 +661,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Must provide resume or coverLetter to update" });
       }
       
-      const application = await storage.getJobApplication(req.params.id);
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
@@ -646,7 +688,7 @@ export async function registerRoutes(
   // Resume ranking evaluation endpoint
   app.post("/api/applications/:id/ranking", isAuthenticated, async (req: any, res) => {
     try {
-      const application = await storage.getJobApplication(req.params.id);
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
       if (!application || !application.generatedResume) {
         return res.status(404).json({ error: "Resume not found. Generate one first." });
       }
@@ -672,11 +714,11 @@ export async function registerRoutes(
   // Get cached ranking
   app.get("/api/applications/:id/ranking", isAuthenticated, async (req: any, res) => {
     try {
-      const application = await storage.getJobApplication(req.params.id);
+      const { application } = await loadOwnedApplication(req.user.claims.sub, req.params.id);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
-      
+
       if (!application.resumeRanking) {
         return res.status(404).json({ error: "No ranking available. Evaluate first." });
       }
@@ -691,12 +733,11 @@ export async function registerRoutes(
   app.get("/api/applications/:id/resume.pdf", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profileData = await storage.getProfileByUserId(userId);
+      const { profileData, application } = await loadOwnedApplication(userId, req.params.id);
       if (!profileData) {
         return res.status(400).json({ error: "Profile required" });
       }
 
-      const application = await storage.getJobApplication(req.params.id);
       if (!application || !application.generatedResume) {
         return res.status(404).json({ error: "Resume not found. Generate one first." });
       }
@@ -740,12 +781,11 @@ export async function registerRoutes(
   app.get("/api/applications/:id/resume.docx", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profileData = await storage.getProfileByUserId(userId);
+      const { profileData, application } = await loadOwnedApplication(userId, req.params.id);
       if (!profileData) {
         return res.status(400).json({ error: "Profile required" });
       }
 
-      const application = await storage.getJobApplication(req.params.id);
       if (!application || !application.generatedResume) {
         return res.status(404).json({ error: "Resume not found. Generate one first." });
       }
@@ -902,12 +942,11 @@ export async function registerRoutes(
   app.get("/api/applications/:id/resume-preview", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const profileData = await storage.getProfileByUserId(userId);
+      const { profileData, application } = await loadOwnedApplication(userId, req.params.id);
       if (!profileData) {
         return res.status(400).json({ error: "Profile required" });
       }
 
-      const application = await storage.getJobApplication(req.params.id);
       if (!application || !application.generatedResume) {
         return res.status(404).json({ error: "Resume not found. Generate one first." });
       }

@@ -43,6 +43,27 @@ The following environment variables are required:
 - `SESSION_SECRET` - Secret for session management
 - `AI_INTEGRATIONS_OPENAI_BASE_URL` - OpenAI API base URL
 - `AI_INTEGRATIONS_OPENAI_API_KEY` - OpenAI API key
+- `REPL_ID` - OIDC client id for Replit auth
+
+Optional: `PORT` (default 5000), `ISSUER_URL` (default `https://replit.com/oidc`),
+`AI_MODEL` (default `gpt-4o`). Configuration is validated at startup in
+`server/config.ts` — a missing or malformed variable aborts the boot with a
+message naming it.
+
+## Testing
+
+```
+npm test         # run the vitest suite once
+npm run test:watch
+```
+
+Route tests use an in-memory `IStorage` and injected auth (`test/helpers.ts`), so
+they need no database or network.
+
+## Refactoring
+
+See [`REFACTOR_PLAN.md`](./REFACTOR_PLAN.md) for the staged plan to harden and
+restructure the codebase.
 
 ## Resume Generation Rules
 
