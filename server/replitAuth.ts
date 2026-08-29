@@ -6,8 +6,10 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
-import { storage } from "./storage";
+import { createRepositories } from "./repositories";
 import { config as appConfig } from "./config";
+
+const repositories = createRepositories();
 
 const getOidcConfig = memoize(
   async () => {
@@ -52,7 +54,7 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
-  await storage.upsertUser({
+  await repositories.users.upsert({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],

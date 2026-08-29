@@ -69,28 +69,44 @@ Progress is tracked with checkboxes. Keep this file updated as work lands.
 
 > Goal: make the codebase changeable. No behavior changes.
 
-- [ ] **1.1 Split `routes.ts` (950 lines) into feature routers**
-  - `routes/profile.ts`, `routes/applications.ts`, `routes/generation.ts`,
-    `routes/challenge.ts`, `routes/export.ts`, `routes/index.ts` to compose them.
-  - **Done when:** no route file exceeds ~200 lines; `registerRoutes` just wires.
+- [x] **1.1 + 1.2 MVC + repositories restructure** — `reversible`
+  - **Why:** `routes.ts` was 990 lines: HTTP, validation, ownership,
+    orchestration, serialization, and the profile→AI mapping (copy-pasted 5×) all
+    inline. The `DatabaseStorage` god-class mixed four aggregates.
+  - **What landed** (`Controller → Service → Repository`, per the three decisions
+    in this session):
+    - `models/` — domain types (`ProfileAggregate`, `GeneratedResume`, …) plus a
+      re-export point for the `@shared/schema` row types.
+    - `repositories/` — `UserRepository`, `ProfileRepository`,
+      `JobApplicationRepository`, `WeeklyChallengeRepository` interfaces + Drizzle
+      implementations, each constructed with `db` (extracted to `server/db.ts`).
+      `createRepositories()` composes the production set.
+    - `services/` — `ProfileService`, `ApplicationService` (owns the ownership
+      rule), `GenerationService`, `ExportService`, `ChallengeService`. The AI and
+      document renderers sit behind `AiPort` / `DocumentPort` interfaces with
+      thin adapters over the existing `openai.ts` / `resumeGenerator.ts`. One
+      `toAiProfile()` mapper replaces the five copies.
+    - `controllers/` — one factory per resource; each handler only parses input,
+      calls a service, and responds.
+    - `views/profile.view.ts` — the `/api/profile` serialization.
+    - `routes.ts` — now ~95 lines: resolve deps → build services → mount
+      controllers on an authenticated `/api` router → install error middleware.
+  - **Done:** no controller touches a repository directly; the mapper exists
+    once; `DatabaseStorage` / `IStorage` deleted; 28 tests green, `tsc` clean.
 
-- [ ] **1.2 Introduce a service layer**
-  - **Why:** Business logic (orchestration, the profile→AI-input mapping that is
-    copy-pasted ~5×) lives inline in handlers.
-  - **What:** `services/profile.ts`, `services/application.ts`,
-    `services/generation.ts`. Handlers do: validate input → call service → shape
-    response. One `toAiProfile(profileData)` mapper replaces all copies.
-  - **Done when:** handlers contain no `db`/`storage` orchestration beyond a
-    single service call; the mapper exists once.
+- [x] **1.3 Centralized error handling** — `reversible`
+  - **What landed:** `http/errors.ts` (`AppError` + `BadRequest`/`Validation`/
+    `Unauthorized`/`Forbidden`/`NotFound`), `http/async-handler.ts`,
+    `http/error-middleware.ts` (terminal handler: known errors → their status +
+    `{ error }`, everything else → logged + generic 500). `parseWith()` turns a
+    Zod failure into a 400. No controller or service contains `try/catch`.
+  - **Behaviour delta (intentional):** unexpected 500s now return a uniform
+    `{ error: "Internal server error" }` instead of per-route
+    `{ error: "Failed to …" }` / `{ message }`; two manual validation checks
+    (`content` update, `challenge/acknowledge`) now carry the standard
+    `Validation error: …` prefix. All success paths and 4xx codes unchanged.
 
-- [ ] **1.3 Centralized error handling**
-  - **What:** `asyncHandler` wrapper; typed errors (`NotFoundError`,
-    `ValidationError`, `ForbiddenError`); one Express error middleware that maps
-    them to status + body. Remove per-handler try/catch.
-  - **Done when:** no route handler contains `try/catch`; error shapes are
-    identical to today (asserted by tests).
-
-- [ ] **1.4 Structured logging**
+- [ ] **1.4 Structured logging** *(not started)*
   - **What:** `pino` (or similar). Request-id middleware. Replace `console.*`.
   - **Done when:** every log line is JSON with a request id; no bare `console.`
     in `server/`.
@@ -199,6 +215,14 @@ is a candidate.
 
 ## Changelog
 
+- _2026-08-28_ — **Phase 1.1–1.3 complete: server restructured to
+  Controller → Service → Repository.** New `models/`, `repositories/`,
+  `services/` (with `AiPort`/`DocumentPort`), `controllers/`, `views/`, `http/`
+  directories; `server/db.ts` extracted; `storage.ts` deleted; `routes.ts` down
+  from 990 to ~95 lines; centralized typed errors + async handler. `tsconfig`
+  now type-checks `test/` (target ES2022). 28 tests green, `tsc` clean, prod
+  build OK. Remaining Phase 1: 1.4 logging, 1.5 client data layer, 1.6 component
+  split.
 - _2026-08-28_ — Plan created. **Phase 0 complete (0.1–0.4):**
   - `loadOwnedApplication` helper enforces ownership on all 11 `/api/applications/:id*`
     routes; non-owners get 404.

@@ -8,7 +8,7 @@ describe("applications CRUD", () => {
 
   beforeEach(async () => {
     ctx = createTestContext();
-    await seedProfile(ctx.storage, USER);
+    await seedProfile(ctx.repositories, USER);
   });
 
   it("creates an application scoped to the caller's profile", async () => {
@@ -29,8 +29,8 @@ describe("applications CRUD", () => {
   });
 
   it("lists only the caller's applications", async () => {
-    const otherProfileId = await seedProfile(ctx.storage, "user-2", { email: "two@example.com" });
-    await ctx.storage.createJobApplication(otherProfileId, {
+    const otherProfileId = await seedProfile(ctx.repositories, "user-2", { email: "two@example.com" });
+    await ctx.repositories.applications.create(otherProfileId, {
       company: "OtherCo",
       jobTitle: "X",
       jobDescription: "",
@@ -54,8 +54,8 @@ describe("applications CRUD", () => {
   });
 
   it("lets the owner update status", async () => {
-    const profileId = (await ctx.storage.getProfileByUserId(USER))!.profile.id;
-    const created = await ctx.storage.createJobApplication(profileId, {
+    const profileId = (await ctx.repositories.profiles.findAggregateByUserId(USER))!.profile.id;
+    const created = await ctx.repositories.applications.create(profileId, {
       company: "Acme",
       jobTitle: "Dev",
       jobDescription: "jd",

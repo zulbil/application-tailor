@@ -15,10 +15,10 @@ describe("application authorization", () => {
 
   beforeEach(async () => {
     ctx = createTestContext();
-    const victimProfileId = await seedProfile(ctx.storage, VICTIM, { email: "victim@example.com" });
-    await seedProfile(ctx.storage, ATTACKER, { email: "attacker@example.com" });
+    const victimProfileId = await seedProfile(ctx.repositories, VICTIM, { email: "victim@example.com" });
+    await seedProfile(ctx.repositories, ATTACKER, { email: "attacker@example.com" });
 
-    const app = await ctx.storage.createJobApplication(victimProfileId, {
+    const app = await ctx.repositories.applications.create(victimProfileId, {
       company: "VictimCo",
       jobTitle: "Staff Engineer",
       jobDescription: "secret jd",
@@ -39,7 +39,7 @@ describe("application authorization", () => {
       .patch(`/api/applications/${victimAppId}/status`)
       .send({ status: "rejected" });
     expect(res.status).toBe(404);
-    expect((await ctx.storage.getJobApplication(victimAppId))?.status).toBe("created");
+    expect((await ctx.repositories.applications.findById(victimAppId))?.status).toBe("created");
   });
 
   it("does not let another user edit content", async () => {
@@ -48,7 +48,7 @@ describe("application authorization", () => {
       .patch(`/api/applications/${victimAppId}/content`)
       .send({ coverLetter: "hacked" });
     expect(res.status).toBe(404);
-    expect((await ctx.storage.getJobApplication(victimAppId))?.generatedCoverLetter).toBeNull();
+    expect((await ctx.repositories.applications.findById(victimAppId))?.generatedCoverLetter).toBeNull();
   });
 
   it("does not let another user update resume settings", async () => {
@@ -63,7 +63,7 @@ describe("application authorization", () => {
     const attacker = await ctx.appAs(ATTACKER);
     const res = await request(attacker).delete(`/api/applications/${victimAppId}`);
     expect(res.status).toBe(404);
-    expect(await ctx.storage.getJobApplication(victimAppId)).not.toBeNull();
+    expect(await ctx.repositories.applications.findById(victimAppId)).not.toBeNull();
   });
 
   it("does not let another user trigger generation", async () => {
