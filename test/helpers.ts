@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import type { RequestHandler } from "express";
 import { registerRoutes } from "../server/routes";
+import { httpLogger } from "../server/http/http-logger";
 import type { AiPort, DocumentPort } from "../server/services";
 import { createMemoryRepositories, type MemoryRepositories } from "./fakes/repositories";
 
@@ -64,6 +65,7 @@ export function createTestContext(options: TestContextOptions = {}): TestContext
   const build = async (isAuthenticated: RequestHandler) => {
     const app = express();
     app.use(express.json());
+    app.use(httpLogger);
     const httpServer = createServer(app);
     await registerRoutes(httpServer, app, {
       repositories,

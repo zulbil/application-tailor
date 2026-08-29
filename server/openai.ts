@@ -1,5 +1,8 @@
 import OpenAI from "openai";
 import { config } from "./config";
+import { moduleLogger } from "./lib/logger";
+
+const log = moduleLogger("ai");
 
 // This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
 // The client is constructed lazily so importing this module never has side effects
@@ -354,7 +357,7 @@ Return ONLY valid JSON with this exact structure:
 
 Generate the strategic, tailored resume now.`;
 
-  console.log("Calling OpenAI for strategic resume generation...");
+  log.debug("requesting tailored resume completion");
 
   const response = await getOpenAI().chat.completions.create({
     model: config.AI_MODEL,
@@ -367,14 +370,13 @@ Generate the strategic, tailored resume now.`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI strategic resume response received");
+  log.debug("tailored resume completion received");
 
   let parsed: any;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI response:", content);
-    console.error("Parse error:", e);
+    log.error({ err: e, content }, "failed to parse tailored resume JSON");
     parsed = {};
   }
 
@@ -384,7 +386,7 @@ Generate the strategic, tailored resume now.`;
     !Array.isArray(parsed.logline) ||
     parsed.logline.length !== 3
   ) {
-    console.warn("Invalid logline format, using fallback");
+    log.warn("invalid logline format, using fallback");
     parsed.logline = [
       "Experienced full-stack developer with proven track record",
       "Proficient in modern web technologies and frameworks",
@@ -393,7 +395,7 @@ Generate the strategic, tailored resume now.`;
   }
 
   if (!parsed.experiences || !Array.isArray(parsed.experiences)) {
-    console.warn("Invalid experiences format, using fallback");
+    log.warn("invalid experiences format, using fallback");
     parsed.experiences = profile.experiences.map((exp) => ({
       company: exp.company,
       title: exp.title,
@@ -415,7 +417,7 @@ Generate the strategic, tailored resume now.`;
       !Array.isArray(exp.bullets) ||
       exp.bullets.length !== 3
     ) {
-      console.warn(`Invalid bullets for ${exp.company}, using fallback`);
+      log.warn({ company: exp.company }, "invalid bullets, using fallback");
       exp.bullets = [
         "Developed and maintained application features",
         "Worked with team to deliver project requirements",
@@ -444,12 +446,12 @@ Generate the strategic, tailored resume now.`;
   }
 
   // Final validation log
-  console.log("Resume validation:", {
+  log.debug({
     loglineCount: parsed.logline.length,
     experiencesCount: parsed.experiences.length,
     hasTechnologies: !!parsed.technologies,
     relevantSkillsCount: parsed.relevantSkills.length,
-  });
+  }, "resume validation");
 
   return parsed;
 }
@@ -605,7 +607,7 @@ Sincerely,
 
 Generate the personalized, compelling cover letter now.`;
 
-  console.log("Calling OpenAI for cover letter generation...");
+  log.debug("requesting cover letter completion");
 
   const response = await getOpenAI().chat.completions.create({
     model: config.AI_MODEL,
@@ -618,20 +620,19 @@ Generate the personalized, compelling cover letter now.`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI cover letter response received");
+  log.debug("cover letter completion received");
 
   let parsed: any;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI cover letter response:", content);
-    console.error("Parse error:", e);
+    log.error({ err: e, content }, "failed to parse cover letter JSON");
     parsed = {};
   }
 
   // Validate the response has required field
   if (!parsed.coverLetter || typeof parsed.coverLetter !== "string") {
-    console.warn("Invalid cover letter format, using fallback");
+    log.warn("invalid cover letter format, using fallback");
     parsed.coverLetter = `Dear Hiring Manager,
 
 I am writing to express my interest in the ${jobApp.jobTitle || "position"} role at ${jobApp.companyName || "your company"}. With ${profile.experiences.length} years of experience in software development and a strong background in ${profile.skills ? profile.skills.split(",")[0] : "web technologies"}, I am excited about the opportunity to contribute to your team.
@@ -710,7 +711,7 @@ Job Description: ${jobDescription.slice(0, 1500)}
 
 Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 improvements. Return valid JSON only.`;
 
-  console.log("Calling OpenAI for resume ranking evaluation...");
+  log.debug("requesting resume ranking completion");
 
   const response = await getOpenAI().chat.completions.create({
     model: config.AI_MODEL,
@@ -723,7 +724,7 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI ranking evaluation response received");
+  log.debug("resume ranking completion received");
 
   // Strip markdown code fences if present
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
@@ -738,7 +739,7 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI ranking response:", content);
+    log.error({ content }, "failed to parse resume ranking JSON");
     parsed = {};
   }
 
@@ -838,7 +839,7 @@ Steps:
 
 Return valid JSON only.`;
 
-  console.log("Calling OpenAI for gap analysis...");
+  log.debug("requesting gap analysis completion");
 
   const response = await getOpenAI().chat.completions.create({
     model: config.AI_MODEL,
@@ -851,7 +852,7 @@ Return valid JSON only.`;
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI gap analysis response received");
+  log.debug("gap analysis completion received");
 
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -861,7 +862,7 @@ Return valid JSON only.`;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse gap analysis response:", content);
+    log.error({ content }, "failed to parse gap analysis JSON");
     parsed = {};
   }
 

@@ -30,6 +30,11 @@ const envSchema = z.object({
     .min(1, "AI_INTEGRATIONS_OPENAI_API_KEY is required"),
   AI_MODEL: z.string().min(1).default("gpt-4o"),
 
+  // Logging
+  LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
+    .optional(),
+
   // Replit auth (OIDC)
   REPL_ID: z.string().min(1, "REPL_ID is required"),
   ISSUER_URL: z.string().url().default("https://replit.com/oidc"),

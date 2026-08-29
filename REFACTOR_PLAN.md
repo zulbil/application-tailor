@@ -106,10 +106,28 @@ Progress is tracked with checkboxes. Keep this file updated as work lands.
     (`content` update, `challenge/acknowledge`) now carry the standard
     `Validation error: …` prefix. All success paths and 4xx codes unchanged.
 
-- [ ] **1.4 Structured logging** *(not started)*
-  - **What:** `pino` (or similar). Request-id middleware. Replace `console.*`.
-  - **Done when:** every log line is JSON with a request id; no bare `console.`
-    in `server/`.
+- [x] **1.4 Structured logging** — `reversible`
+  - **What landed:**
+    - `server/lib/logger.ts` — root `pino` logger. Pretty (`pino-pretty`) in
+      dev, newline-delimited JSON to stdout in prod, `silent` under test. Level
+      from `LOG_LEVEL` env or a per-env default. Redacts cookie / auth headers.
+    - `server/http/http-logger.ts` — `pino-http` middleware: generates (or
+      echoes) a request id, sets `x-request-id` on the response, attaches
+      `req.log`, and logs one line per completed `/api` request at a
+      status-derived level. Non-`/api` (SPA/HMR/assets) traffic is ignored,
+      matching prior behaviour.
+    - `index.ts` — dropped the hand-rolled timing middleware and the `log()`
+      helper; `pino-http` mounted app-wide; startup logs via `logger`.
+    - `openai.ts` — 22 `console.*` calls → a `moduleLogger("ai")` child at
+      `debug`/`warn`/`error`.
+    - `error-middleware.ts` — logs the unhandled error via `req.log` (falls back
+      to the root logger outside a request).
+  - **Behaviour delta:** the old logger appended the full JSON response body to
+    every `/api` log line (leaking resume/cover-letter/PII into logs) — dropped.
+  - `pino` / `pino-http` load as externals from `node_modules` (not bundled).
+  - **Done:** no `console.*` anywhere in `server/`; every line is structured
+    with a request id; 30 tests green (`observability.test.ts` covers the
+    `x-request-id` contract), `tsc` clean, prod build + boot OK.
 
 - [ ] **1.5 Client data layer consolidation**
   - **Why:** `lib/api.ts` hand-rolls ~25 `fetch` calls with duplicated error
@@ -215,6 +233,10 @@ is a candidate.
 
 ## Changelog
 
+- _2026-08-28_ — **Phase 1.4 complete: structured logging.** `pino` +
+  `pino-http`; `server/lib/logger.ts` and `server/http/http-logger.ts`; every
+  `console.*` in `server/` removed (22 of them in `openai.ts`); `x-request-id`
+  on every API response; response-body logging dropped. 30 tests green.
 - _2026-08-28_ — **Phase 1.1–1.3 complete: server restructured to
   Controller → Service → Repository.** New `models/`, `repositories/`,
   `services/` (with `AiPort`/`DocumentPort`), `controllers/`, `views/`, `http/`

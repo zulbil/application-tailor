@@ -46,9 +46,14 @@ The following environment variables are required:
 - `REPL_ID` - OIDC client id for Replit auth
 
 Optional: `PORT` (default 5000), `ISSUER_URL` (default `https://replit.com/oidc`),
-`AI_MODEL` (default `gpt-4o`). Configuration is validated at startup in
-`server/config.ts` — a missing or malformed variable aborts the boot with a
-message naming it.
+`AI_MODEL` (default `gpt-4o`), `LOG_LEVEL` (`trace`|`debug`|`info`|`warn`|`error`|
+`fatal`|`silent`; defaults to `debug` in dev, `info` in prod). Configuration is
+validated at startup in `server/config.ts` — a missing or malformed variable
+aborts the boot with a message naming it.
+
+Logs are pretty-printed in development and emitted as newline-delimited JSON in
+production. Every `/api` response carries an `x-request-id` header that ties it
+to its log lines.
 
 ## Testing
 
