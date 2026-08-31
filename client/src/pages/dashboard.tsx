@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { api } from "@/lib/api";
 import { TrackedApplication, ApplicationStatus, ChallengeData } from "@/lib/types";
+import { OnboardingDialog } from "@/components/onboarding-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Plus, Trash2, Target, Trophy, Sparkles, FileText, Clock, X, 
-  Briefcase, Building2, TrendingUp, Calendar, MoreHorizontal, GripVertical
+  Briefcase, Building2, TrendingUp, Calendar, MoreHorizontal, BarChart3, GraduationCap, AlertCircle, CheckCircle2,
+  ChevronLeft, ChevronRight, Filter, Search
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format, differenceInDays, startOfDay } from "date-fns";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,12 +53,14 @@ function ApplicationCard({
   application, 
   onStatusChange, 
   onDelete,
-  onGenerateResume
+  onGenerateResume,
+  readinessScore
 }: { 
   application: TrackedApplication; 
   onStatusChange: (status: ApplicationStatus) => void;
   onDelete: () => void;
   onGenerateResume: () => void;
+  readinessScore?: number;
 }) {
   const config = statusConfig[application.status as ApplicationStatus] || statusConfig.created;
   
@@ -106,15 +120,109 @@ function ApplicationCard({
         </div>
         
         <div className="flex items-center justify-between mt-4 pt-3 border-t">
-          <Badge variant="secondary" className={`${config.bgColor} ${config.color} border ${config.borderColor} gap-1`}>
-            {config.icon}
-            {config.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={`${config.bgColor} ${config.color} border ${config.borderColor} gap-1`}>
+              {config.icon}
+              {config.label}
+            </Badge>
+            {readinessScore !== undefined && readinessScore > 0 && (
+              <Badge variant="outline" className={`gap-1 ${readinessScore >= 70 ? "border-green-300 text-green-700 bg-green-50" : readinessScore >= 40 ? "border-yellow-300 text-yellow-700 bg-yellow-50" : "border-gray-300 text-gray-700"}`} data-testid={`badge-readiness-${application.id}`}>
+                <GraduationCap className="size-3" />
+                {readinessScore}%
+              </Badge>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="size-3" />
             {new Date(application.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InterviewAlertsCard({ 
+  applications,
+  readinessScores,
+  onOpenApplication
+}: { 
+  applications: TrackedApplication[];
+  readinessScores: Record<string, number>;
+  onOpenApplication: (app: TrackedApplication) => void;
+}) {
+  const today = startOfDay(new Date());
+  const upcomingInterviews = applications
+    .filter(app => app.interviewDate)
+    .map(app => {
+      const interviewDay = startOfDay(new Date(app.interviewDate!));
+      return {
+        ...app,
+        date: interviewDay,
+        daysLeft: differenceInDays(interviewDay, today),
+        readiness: readinessScores[app.id] || 0
+      };
+    })
+    .filter(app => app.daysLeft >= 0)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .slice(0, 3);
+
+  if (upcomingInterviews.length === 0) return null;
+
+  const getReadinessStatus = (readiness: number, daysLeft: number) => {
+    if (readiness >= 70) return { label: "Ready", color: "text-green-600", bgColor: "bg-green-50", icon: <CheckCircle2 className="size-4" /> };
+    if (readiness >= 40) return { label: "Preparing", color: "text-yellow-600", bgColor: "bg-yellow-50", icon: <AlertCircle className="size-4" /> };
+    if (daysLeft <= 3) return { label: "Needs Training", color: "text-red-600", bgColor: "bg-red-50", icon: <AlertCircle className="size-4" /> };
+    return { label: "Not Started", color: "text-gray-600", bgColor: "bg-gray-50", icon: <AlertCircle className="size-4" /> };
+  };
+
+  return (
+    <Card className="border-l-4 border-l-amber-500">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <div className="size-8 rounded-lg bg-amber-100 flex items-center justify-center">
+            <Calendar className="size-4 text-amber-600" />
+          </div>
+          Upcoming Interviews
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {upcomingInterviews.map(app => {
+          const status = getReadinessStatus(app.readiness, app.daysLeft);
+          return (
+            <div 
+              key={app.id} 
+              className="p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+              onClick={() => onOpenApplication(app)}
+              data-testid={`interview-alert-${app.id}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{app.jobTitle}</p>
+                  <p className="text-xs text-muted-foreground truncate">{app.company}</p>
+                </div>
+                <Badge 
+                  variant="outline" 
+                  className={`shrink-0 ${app.daysLeft <= 2 ? "border-red-300 bg-red-50 text-red-700" : app.daysLeft <= 7 ? "border-amber-300 bg-amber-50 text-amber-700" : "border-blue-300 bg-blue-50 text-blue-700"}`}
+                >
+                  {app.daysLeft === 0 ? "Today!" : app.daysLeft === 1 ? "Tomorrow" : `${app.daysLeft} days`}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-dashed">
+                <div className="flex items-center gap-1.5">
+                  <span className={status.color}>{status.icon}</span>
+                  <span className={`text-xs font-medium ${status.color}`}>{status.label}</span>
+                  {app.readiness > 0 && (
+                    <span className="text-xs text-muted-foreground">({app.readiness}%)</span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {format(app.date, "MMM d, yyyy")}
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -251,6 +359,114 @@ function StatsCard({ title, value, icon, trend }: { title: string; value: number
   );
 }
 
+const rangeOptions = [
+  { value: "last_7_days", label: "7 Days" },
+  { value: "last_2_weeks", label: "2 Weeks" },
+  { value: "last_month", label: "Month" },
+  { value: "last_year", label: "Year" },
+];
+
+function ApplicationsChartCard() {
+  const [range, setRange] = useState("last_7_days");
+  
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ["analytics", range],
+    queryFn: () => api.getApplicationAnalytics(range),
+  });
+
+  const chartData = analytics?.labels.map((label, i) => ({
+    name: label,
+    applications: analytics.counts[i],
+  })) || [];
+
+  return (
+    <Card className="md:col-span-2">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="size-4 text-primary" />
+            </div>
+            Applications Over Time
+          </CardTitle>
+          <Select value={range} onValueChange={setRange}>
+            <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-chart-range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {rangeOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            Loading...
+          </div>
+        ) : chartData.length === 0 || analytics?.total === 0 ? (
+          <div className="h-[200px] flex flex-col items-center justify-center text-center">
+            <BarChart3 className="size-8 text-muted-foreground/50 mb-2" />
+            <p className="text-sm text-muted-foreground">No applications in this period</p>
+          </div>
+        ) : (
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorApplications" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={range === 'last_year' ? 1 : range === 'last_month' ? 4 : 'preserveStartEnd'}
+                />
+                <YAxis 
+                  tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))', 
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}
+                  labelStyle={{ fontWeight: 600 }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="applications" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  fill="url(#colorApplications)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {analytics && analytics.total > 0 && (
+          <div className="mt-2 pt-2 border-t text-center">
+            <span className="text-2xl font-bold font-serif text-primary">{analytics.total}</span>
+            <span className="text-sm text-muted-foreground ml-2">applications in this period</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function KanbanColumn({ 
   status, 
   applications, 
@@ -311,11 +527,40 @@ export default function DashboardPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newApp, setNewApp] = useState({ company: "", jobTitle: "", jobDescription: "" });
   const [activeTab, setActiveTab] = useState<string>("all");
+  
+  // Table filters and pagination state
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { data: applications = [], isLoading: appsLoading } = useQuery({
     queryKey: ["applications"],
     queryFn: api.getApplications,
   });
+
+  const [readinessScores, setReadinessScores] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchReadinessScores = async () => {
+      const scores: Record<string, number> = {};
+      for (const app of applications) {
+        try {
+          const response = await fetch(`/api/applications/${app.id}/readiness`, { credentials: "include" });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.readinessScore > 0) {
+              scores[app.id] = data.readinessScore;
+            }
+          }
+        } catch (e) {}
+      }
+      setReadinessScores(scores);
+    };
+    if (applications.length > 0) fetchReadinessScores();
+  }, [applications]);
 
   const { data: challengeData } = useQuery({
     queryKey: ["challenge"],
@@ -387,13 +632,18 @@ export default function DashboardPage() {
   };
 
   const handleGenerateResume = (app: TrackedApplication) => {
-    sessionStorage.setItem("prefillApplication", JSON.stringify({
-      company: app.company,
-      jobTitle: app.jobTitle,
-      jobDescription: app.jobDescription,
-      applicationId: app.id,
-    }));
-    setLocation("/application");
+    if (app.slug) {
+      setLocation(`/application/${app.slug}`);
+    } else {
+      // Fallback for applications without slugs
+      sessionStorage.setItem("prefillApplication", JSON.stringify({
+        company: app.company,
+        jobTitle: app.jobTitle,
+        jobDescription: app.jobDescription,
+        applicationId: app.id,
+      }));
+      setLocation("/application");
+    }
   };
 
   const groupedApplications = statusOrder.reduce((acc, status) => {
@@ -401,12 +651,41 @@ export default function DashboardPage() {
     return acc;
   }, {} as Record<ApplicationStatus, TrackedApplication[]>);
 
+  // Get unique companies and specialties for filter dropdowns
+  const uniqueCompanies = Array.from(new Set(applications.map(app => app.company).filter(Boolean))).sort();
+  const uniqueSpecialties = Array.from(new Set(applications.map(app => app.jobTitle).filter(Boolean))).sort();
+
+  // Apply filters
+  const tableFilteredApplications = applications.filter(app => {
+    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+    const matchesCompany = companyFilter === "all" || app.company === companyFilter;
+    const matchesSpecialty = specialtyFilter === "all" || app.jobTitle === specialtyFilter;
+    const matchesSearch = !searchQuery || 
+      app.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.jobTitle?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesCompany && matchesSpecialty && matchesSearch;
+  });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(tableFilteredApplications.length / pageSize);
+  const paginatedApplications = tableFilteredApplications.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, companyFilter, specialtyFilter, searchQuery]);
+
   const filteredApplications = activeTab === "all" 
     ? applications 
     : applications.filter(app => app.status === activeTab);
 
   return (
     <div className="space-y-6">
+      <OnboardingDialog />
+      
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -506,101 +785,259 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Weekly Challenge Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Interview Alerts */}
+      <InterviewAlertsCard 
+        applications={applications}
+        readinessScores={readinessScores}
+        onOpenApplication={handleGenerateResume}
+      />
+
+      {/* Weekly Challenge & Chart Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <WeeklyChallengeCard 
           challengeData={challengeData || null}
           onSetGoal={(goal) => setChallengeMutation.mutate(goal)}
           onAcknowledge={() => acknowledgeMutation.mutate()}
         />
+        <ApplicationsChartCard />
       </div>
 
-      {/* Kanban Board - Full Width */}
-      <div>
-        {/* Mobile: Tabbed View */}
-        <div className="block md:hidden">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <ScrollArea className="w-full">
-              <TabsList className="w-full justify-start mb-4">
-                <TabsTrigger value="all" className="text-xs">
-                  All ({applications.length})
-                </TabsTrigger>
-                {statusOrder.map((status) => (
-                  <TabsTrigger key={status} value={status} className="text-xs">
-                    {statusConfig[status].label} ({groupedApplications[status]?.length || 0})
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+      {/* Applications Table */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="size-5" />
+              Applications
+            </CardTitle>
             
-            <TabsContent value="all" className="mt-0 space-y-3">
-              {applications.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                    <Briefcase className="size-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-1">No applications yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Add your first job application to get started</p>
-                  <Button onClick={() => setIsAddOpen(true)}>
-                    <Plus className="size-4 mr-2" />
-                    Add Application
-                  </Button>
-                </Card>
-              ) : (
-                applications.map((app) => (
+            {/* Filters Row */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search applications..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-applications"
+                />
+              </div>
+              
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[160px]" data-testid="select-status-filter">
+                  <Filter className="size-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="created">Draft</SelectItem>
+                  <SelectItem value="applied">Applied</SelectItem>
+                  <SelectItem value="interviewing">Interviewing</SelectItem>
+                  <SelectItem value="offered">Offered</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {/* Company Filter */}
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-company-filter">
+                  <Building2 className="size-4 mr-2" />
+                  <SelectValue placeholder="Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {uniqueCompanies.map((company) => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Specialty Filter */}
+              <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-specialty-filter">
+                  <Briefcase className="size-4 mr-2" />
+                  <SelectValue placeholder="Specialty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Specialties</SelectItem>
+                  {uniqueSpecialties.map((specialty) => (
+                    <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          {applications.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <Briefcase className="size-6 text-primary" />
+              </div>
+              <h3 className="font-semibold mb-1">No applications yet</h3>
+              <p className="text-sm text-muted-foreground mb-4">Add your first job application to get started</p>
+              <Button onClick={() => setIsAddOpen(true)}>
+                <Plus className="size-4 mr-2" />
+                Add Application
+              </Button>
+            </div>
+          ) : tableFilteredApplications.length === 0 ? (
+            <div className="p-8 text-center">
+              <Filter className="size-8 text-muted-foreground/50 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No applications match your filters</p>
+              <Button variant="link" onClick={() => {
+                setStatusFilter("all");
+                setCompanyFilter("all");
+                setSpecialtyFilter("all");
+                setSearchQuery("");
+              }}>
+                Clear all filters
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date Added</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedApplications.map((app) => {
+                      const config = statusConfig[app.status as ApplicationStatus] || statusConfig.created;
+                      return (
+                        <TableRow key={app.id} data-testid={`row-application-${app.id}`}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="size-4 text-muted-foreground" />
+                              {app.company}
+                            </div>
+                          </TableCell>
+                          <TableCell>{app.jobTitle}</TableCell>
+                          <TableCell>
+                            <Badge className={`${config.bgColor} ${config.color} border ${config.borderColor}`}>
+                              {config.icon}
+                              <span className="ml-1">{config.label}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {app.createdAt ? format(new Date(app.createdAt), "MMM d, yyyy") : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="size-8" data-testid={`button-menu-${app.id}`}>
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleGenerateResume(app)}>
+                                  <FileText className="size-4 mr-2" />
+                                  Generate Resume
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {statusOrder.map((status) => (
+                                  <DropdownMenuItem 
+                                    key={status} 
+                                    onClick={() => updateStatusMutation.mutate({ id: app.id, status })}
+                                    className={app.status === status ? "bg-accent" : ""}
+                                  >
+                                    {statusConfig[status].icon}
+                                    <span className="ml-2">Move to {statusConfig[status].label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => deleteMutation.mutate(app.id)} 
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="size-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {paginatedApplications.map((app) => (
                   <ApplicationCard
                     key={app.id}
                     application={app}
                     onStatusChange={(newStatus) => updateStatusMutation.mutate({ id: app.id, status: newStatus })}
                     onDelete={() => deleteMutation.mutate(app.id)}
                     onGenerateResume={() => handleGenerateResume(app)}
+                    readinessScore={readinessScores[app.id]}
                   />
-                ))
-              )}
-            </TabsContent>
-            
-            {statusOrder.map((status) => (
-              <TabsContent key={status} value={status} className="mt-0 space-y-3">
-                {groupedApplications[status]?.length === 0 ? (
-                  <Card className="p-8 text-center">
-                    <div className={`size-12 rounded-full ${statusConfig[status].bgColor} flex items-center justify-center mx-auto mb-3`}>
-                      {statusConfig[status].icon}
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, tableFilteredApplications.length)} of {tableFilteredApplications.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                      <SelectTrigger className="w-[80px]" data-testid="select-page-size">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        data-testid="button-prev-page"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <span className="text-sm px-2">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        data-testid="button-next-page"
+                      >
+                        <ChevronRight className="size-4" />
+                      </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground">No {statusConfig[status].label.toLowerCase()} applications</p>
-                  </Card>
-                ) : (
-                  groupedApplications[status]?.map((app) => (
-                    <ApplicationCard
-                      key={app.id}
-                      application={app}
-                      onStatusChange={(newStatus) => updateStatusMutation.mutate({ id: app.id, status: newStatus })}
-                      onDelete={() => deleteMutation.mutate(app.id)}
-                      onGenerateResume={() => handleGenerateResume(app)}
-                    />
-                  ))
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </div>
-
-        {/* Desktop: Kanban Columns - All 5 in One Row */}
-        <div className="hidden md:block">
-          <div className="grid grid-cols-5 gap-3">
-            {statusOrder.map((status) => (
-              <KanbanColumn
-                key={status}
-                status={status}
-                applications={groupedApplications[status] || []}
-                onStatusChange={(id, newStatus) => updateStatusMutation.mutate({ id, status: newStatus })}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                onGenerateResume={handleGenerateResume}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

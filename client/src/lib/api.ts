@@ -1,4 +1,4 @@
-import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis } from "./types";
+import { Profile, JobApplicationInput, GeneratedResume, GeneratedCoverLetter, TrackedApplication, ChallengeData, ApplicationStatus, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis, LinkedinProfileInput, LinkedinAnalysisResult, LinkedinAnalysisRecord, DifficultyLevel, SkillTrainingRecord, SimulationDifficulty, InterviewSimulation, AnswerEvaluation } from "./types";
 
 interface ProfileResponse {
   profile: Omit<Profile, "experiences" | "education">;
@@ -76,6 +76,12 @@ export const api = {
     return response.json();
   },
 
+  getApplicationBySlug: async (slug: string): Promise<TrackedApplication> => {
+    const response = await fetch(`/api/applications/slug/${slug}`);
+    if (!response.ok) throw new Error("Application not found");
+    return response.json();
+  },
+
   createApplication: async (data: { company: string; jobTitle: string; jobDescription: string; status?: ApplicationStatus }): Promise<TrackedApplication> => {
     const response = await fetch("/api/applications", {
       method: "POST",
@@ -126,12 +132,13 @@ export const api = {
   generateForApplication: async (
     id: string, 
     tone: "Professional" | "Friendly" | "Confident",
-    updates?: { jobDescription?: string; jobTitle?: string; company?: string }
+    updates?: { jobDescription?: string; jobTitle?: string; company?: string },
+    gapContext?: { jobMatch: number; criticalGaps: string[]; strongMatches: string[]; isLowMatch: boolean }
   ): Promise<{ resume: GeneratedResume; coverLetter: string }> => {
     const response = await fetch(`/api/applications/${id}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tone, ...updates }),
+      body: JSON.stringify({ tone, ...updates, gapContext }),
     });
     
     if (!response.ok) {
@@ -145,6 +152,12 @@ export const api = {
   getChallenge: async (): Promise<ChallengeData | null> => {
     const response = await fetch("/api/challenge");
     if (!response.ok) throw new Error("Failed to fetch challenge");
+    return response.json();
+  },
+
+  getApplicationAnalytics: async (range: string): Promise<{ labels: string[]; counts: number[]; total: number }> => {
+    const response = await fetch(`/api/analytics/applications?range=${range}`);
+    if (!response.ok) throw new Error("Failed to fetch analytics");
     return response.json();
   },
 
@@ -276,6 +289,106 @@ export const api = {
       throw new Error(error.error || "Failed to analyze job fit");
     }
     
+    return response.json();
+  },
+
+  analyzeLinkedinProfile: async (data: LinkedinProfileInput): Promise<LinkedinAnalysisResult> => {
+    const response = await fetch("/api/linkedin/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to analyze LinkedIn profile");
+    }
+    
+    return response.json();
+  },
+
+  getLinkedinAnalyses: async (): Promise<LinkedinAnalysisRecord[]> => {
+    const response = await fetch("/api/linkedin/analyses");
+    if (!response.ok) throw new Error("Failed to fetch LinkedIn analyses");
+    return response.json();
+  },
+
+  getLatestLinkedinAnalysis: async (): Promise<LinkedinAnalysisRecord | null> => {
+    const response = await fetch("/api/linkedin/latest");
+    if (!response.ok) throw new Error("Failed to fetch latest analysis");
+    return response.json();
+  },
+
+  getSkillsList: async (): Promise<string[]> => {
+    const response = await fetch("/api/skills/list");
+    if (!response.ok) throw new Error("Failed to fetch skills list");
+    return response.json();
+  },
+
+  generateSkillTraining: async (skill: string, difficulty: DifficultyLevel): Promise<SkillTrainingRecord> => {
+    const response = await fetch("/api/skills/training", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skill, difficulty }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to generate training");
+    }
+    
+    return response.json();
+  },
+
+  getSkillTraining: async (skill: string, difficulty: DifficultyLevel): Promise<SkillTrainingRecord | null> => {
+    const response = await fetch(`/api/skills/training?skill=${encodeURIComponent(skill)}&difficulty=${difficulty}`);
+    if (!response.ok) throw new Error("Failed to fetch training");
+    return response.json();
+  },
+
+  getAllSkillTraining: async (): Promise<SkillTrainingRecord[]> => {
+    const response = await fetch("/api/skills/training");
+    if (!response.ok) throw new Error("Failed to fetch all training");
+    return response.json();
+  },
+
+  getSimulations: async (applicationId: string): Promise<InterviewSimulation[]> => {
+    const response = await fetch(`/api/applications/${applicationId}/simulations`);
+    if (!response.ok) throw new Error("Failed to fetch simulations");
+    return response.json();
+  },
+
+  createSimulation: async (applicationId: string, difficulty: SimulationDifficulty): Promise<InterviewSimulation> => {
+    const response = await fetch(`/api/applications/${applicationId}/simulations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ difficulty }),
+    });
+    if (!response.ok) throw new Error("Failed to create simulation");
+    return response.json();
+  },
+
+  getSimulation: async (simulationId: string): Promise<InterviewSimulation> => {
+    const response = await fetch(`/api/simulations/${simulationId}`);
+    if (!response.ok) throw new Error("Failed to fetch simulation");
+    return response.json();
+  },
+
+  submitAnswer: async (simulationId: string, questionIndex: number, answer: string): Promise<{ simulation: InterviewSimulation; evaluation: AnswerEvaluation }> => {
+    const response = await fetch(`/api/simulations/${simulationId}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questionIndex, answer }),
+    });
+    if (!response.ok) throw new Error("Failed to submit answer");
+    return response.json();
+  },
+
+  completeSimulation: async (simulationId: string): Promise<InterviewSimulation> => {
+    const response = await fetch(`/api/simulations/${simulationId}/complete`, {
+      method: "POST",
+    });
+    if (!response.ok) throw new Error("Failed to complete simulation");
     return response.json();
   },
 };

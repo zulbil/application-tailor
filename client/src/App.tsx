@@ -10,6 +10,8 @@ import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import ProfilePage from "@/pages/profile";
 import JobApplicationPage from "@/pages/job-application";
+import LinkedInOptimizerPage from "@/pages/linkedin-optimizer";
+import SkillsTrainingPage from "@/pages/skills-training";
 import { Loader2 } from "lucide-react";
 
 function Router() {
@@ -33,6 +35,9 @@ function Router() {
         <Route path="/" component={DashboardPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/application" component={JobApplicationPage} />
+        <Route path="/application/:slug" component={JobApplicationPage} />
+        <Route path="/linkedin" component={LinkedInOptimizerPage} />
+        <Route path="/training" component={SkillsTrainingPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2, BarChart3, Star, AlertTriangle, TrendingUp, CheckCircle, XCircle, Search, Target, Lightbulb, ArrowRight } from "lucide-react";
+import { useRoute } from "wouter";
+import { Loader2, Wand2, Copy, FileText, FileUser, Download, Palette, Settings2, FileDown, GripVertical, Pencil, Save, X, Check, Eye, EyeOff, Plus, Trash2, BarChart3, Star, AlertTriangle, TrendingUp, CheckCircle, XCircle, Search, Target, Lightbulb, ArrowRight, GraduationCap, Brain, Users, ChevronRight, RotateCcw, CalendarIcon } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { api } from "@/lib/api";
-import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis } from "@/lib/types";
+import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis, InterviewSimulation, SimulationDifficulty, AnswerEvaluation } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -64,16 +69,14 @@ function SortableSectionItem({ id, prefs, onUpdatePrefs }: SortableSectionItemPr
         <GripVertical className="size-4 text-muted-foreground" />
       </div>
       <div className="flex-1">
-        {id === "summary" ? (
-          <span className="text-sm text-muted-foreground italic">Career Highlights (no title)</span>
-        ) : isEditingTitle ? (
+        {isEditingTitle ? (
           <div className="flex items-center gap-1">
             <input
               type="text"
               value={titleValue}
               onChange={(e) => setTitleValue(e.target.value)}
               className="flex-1 px-2 py-1 text-sm border rounded"
-              placeholder={`Section title for ${id}`}
+              placeholder={id === "summary" ? "Leave empty for no title" : `Section title for ${id}`}
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && saveTitle()}
             />
@@ -86,7 +89,9 @@ function SortableSectionItem({ id, prefs, onUpdatePrefs }: SortableSectionItemPr
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{pref.title || defaultSectionLabels[id] || id}</span>
+            <span className="text-sm font-medium">
+              {pref.title || (id === "summary" ? "(no title)" : defaultSectionLabels[id] || id)}
+            </span>
             <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => setIsEditingTitle(true)}>
               <Pencil className="size-3" />
             </Button>
@@ -111,17 +116,20 @@ const defaultSettings: ResumeSettings = {
   primaryColor: "#059669",
   fontFamily: "Inter",
   fontSize: "medium",
-  sectionOrder: ["summary", "skills", "experience", "education"],
+  sectionOrder: ["summary", "experience", "education", "skills"],
   sectionPreferences: defaultSectionPreferences
 };
 
 export default function JobApplicationPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, params] = useRoute("/application/:slug");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isGeneratingResume, setIsGeneratingResume] = useState(false);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const savedApplicationRef = useRef<string | null>(null);
+  const [applicationLoaded, setApplicationLoaded] = useState(false);
+  const gapAnalysisRef = useRef<GapAnalysis | null>(null);
   
   const [resume, setResume] = useState<GeneratedResume | null>(null);
   const [coverLetter, setCoverLetter] = useState<GeneratedCoverLetter | null>(null);
@@ -139,9 +147,49 @@ export default function JobApplicationPage() {
   const [editedExperiences, setEditedExperiences] = useState<GeneratedResume["experiences"]>([]);
   const [ranking, setRanking] = useState<ResumeRanking | null>(null);
   const [isEvaluatingRanking, setIsEvaluatingRanking] = useState(false);
+  const [isApplyingRecommendations, setIsApplyingRecommendations] = useState(false);
   const [gapAnalysis, setGapAnalysis] = useState<GapAnalysis | null>(null);
   const [isAnalyzingGap, setIsAnalyzingGap] = useState(false);
   const [showGapWarning, setShowGapWarning] = useState(false);
+  
+  interface TrainingQuestion {
+    question: string;
+    answer: string;
+    explanation: string;
+  }
+  
+  interface ApplicationTraining {
+    id: string;
+    applicationId: string;
+    category: "technical" | "soft";
+    difficulty: "easy" | "medium" | "hard";
+    skillFocus: string;
+    questions: TrainingQuestion[];
+    totalQuestions: number;
+    answeredQuestions: number;
+    correctAnswers: number;
+    readinessScore: number;
+  }
+  
+  const [trainings, setTrainings] = useState<ApplicationTraining[]>([]);
+  const [readinessScore, setReadinessScore] = useState(0);
+  const [selectedTraining, setSelectedTraining] = useState<ApplicationTraining | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [isGeneratingTraining, setIsGeneratingTraining] = useState(false);
+  const [trainingCategory, setTrainingCategory] = useState<"technical" | "soft">("technical");
+  const [trainingDifficulty, setTrainingDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [interviewDate, setInterviewDate] = useState<Date | undefined>(undefined);
+  const [isUpdatingInterviewDate, setIsUpdatingInterviewDate] = useState(false);
+  
+  const [simulations, setSimulations] = useState<InterviewSimulation[]>([]);
+  const [activeSimulation, setActiveSimulation] = useState<InterviewSimulation | null>(null);
+  const [simulationDifficulty, setSimulationDifficulty] = useState<SimulationDifficulty>("mid");
+  const [isCreatingSimulation, setIsCreatingSimulation] = useState(false);
+  const [simulationAnswer, setSimulationAnswer] = useState("");
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [lastEvaluation, setLastEvaluation] = useState<{ evaluation: AnswerEvaluation; questionIndex: number } | null>(null);
+  const [isCompletingSimulation, setIsCompletingSimulation] = useState(false);
 
   const form = useForm<JobApplicationInput>({
     defaultValues: {
@@ -156,6 +204,42 @@ export default function JobApplicationPage() {
     api.getProfile().then(setProfile);
     api.getResumeTemplates().then(setTemplates).catch(() => {});
     
+    // If we have a slug from the URL, load the application
+    if (params?.slug) {
+      api.getApplicationBySlug(params.slug).then(app => {
+        form.setValue("companyName", app.company);
+        form.setValue("jobTitle", app.jobTitle);
+        form.setValue("jobDescription", app.jobDescription);
+        savedApplicationRef.current = app.id;
+        setApplicationLoaded(true);
+        
+        if (app.generatedResume) {
+          setResume(app.generatedResume);
+        }
+        if (app.generatedCoverLetter) {
+          setCoverLetter({ coverLetter: app.generatedCoverLetter });
+        }
+        if (app.resumeSettings) {
+          setSettings({ ...defaultSettings, ...app.resumeSettings });
+        }
+        if (app.interviewDate) {
+          setInterviewDate(new Date(app.interviewDate));
+        }
+        // Load cached ranking if available
+        api.getCachedRanking(app.id).then(cachedRanking => {
+          if (cachedRanking) setRanking(cachedRanking);
+        }).catch(() => {});
+      }).catch(() => {
+        toast({
+          title: "Application not found",
+          description: "The application you're looking for could not be found.",
+          variant: "destructive"
+        });
+      });
+      return;
+    }
+    
+    // Fallback to sessionStorage for backwards compatibility
     const prefill = sessionStorage.getItem("prefillApplication");
     if (prefill) {
       try {
@@ -165,6 +249,7 @@ export default function JobApplicationPage() {
         if (data.jobDescription) form.setValue("jobDescription", data.jobDescription);
         if (data.applicationId) {
           savedApplicationRef.current = data.applicationId;
+          setApplicationLoaded(true);
           api.getApplication(data.applicationId).then(app => {
             if (app.generatedResume) {
               setResume(app.generatedResume);
@@ -175,6 +260,9 @@ export default function JobApplicationPage() {
             if (app.resumeSettings) {
               setSettings({ ...defaultSettings, ...app.resumeSettings });
             }
+            if (app.interviewDate) {
+              setInterviewDate(new Date(app.interviewDate));
+            }
             // Load cached ranking if available
             api.getCachedRanking(data.applicationId).then(cachedRanking => {
               if (cachedRanking) setRanking(cachedRanking);
@@ -184,7 +272,7 @@ export default function JobApplicationPage() {
         sessionStorage.removeItem("prefillApplication");
       } catch (e) {}
     }
-  }, []);
+  }, [params?.slug]);
 
   const updateSettings = async (newSettings: Partial<ResumeSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
@@ -380,6 +468,7 @@ export default function JobApplicationPage() {
         status: "created"
       });
       savedApplicationRef.current = app.id;
+      setApplicationLoaded(true);
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({ queryKey: ["challenge"] });
     } catch (e) {
@@ -396,13 +485,15 @@ export default function JobApplicationPage() {
     setIsAnalyzingGap(true);
     try {
       const result = await api.analyzeGap(data);
+      // Store in ref synchronously for reliable access in handleGenerateAnyway
+      gapAnalysisRef.current = result;
       setGapAnalysis(result);
       
       if (!result.shouldGenerateResume) {
         setShowGapWarning(true);
       } else {
-        // Good match, proceed to generate
-        await handleGenerateBothDirect(data);
+        // Good match, proceed to generate - pass result directly since state update is async
+        await handleGenerateBothDirect(data, result);
       }
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to analyze job fit.", variant: "destructive" });
@@ -411,7 +502,7 @@ export default function JobApplicationPage() {
     }
   };
 
-  const handleGenerateBothDirect = async (data: JobApplicationInput) => {
+  const handleGenerateBothDirect = async (data: JobApplicationInput, gapResult?: GapAnalysis) => {
     if (!profile) {
       toast({ title: "Profile Required", description: "Please save your profile first.", variant: "destructive" });
       return;
@@ -420,6 +511,9 @@ export default function JobApplicationPage() {
     setIsGeneratingResume(true);
     setIsGeneratingCoverLetter(true);
     setShowGapWarning(false);
+    
+    // Use passed gapResult or fallback to ref (for "Generate Anyway" flow) - ref is synchronous and reliable
+    const gapData = gapResult || gapAnalysisRef.current || gapAnalysis;
     
     try {
       let applicationId = savedApplicationRef.current;
@@ -433,15 +527,23 @@ export default function JobApplicationPage() {
         });
         applicationId = app.id;
         savedApplicationRef.current = applicationId;
+        setApplicationLoaded(true);
         queryClient.invalidateQueries({ queryKey: ["applications"] });
         queryClient.invalidateQueries({ queryKey: ["challenge"] });
       }
+      
+      const gapContextForGeneration = gapData ? {
+        jobMatch: gapData.gapAnalysis.jobMatch,
+        criticalGaps: gapData.gapAnalysis.criticalGaps,
+        strongMatches: gapData.gapAnalysis.strongMatches,
+        isLowMatch: !gapData.shouldGenerateResume
+      } : undefined;
       
       const result = await api.generateForApplication(applicationId, data.tone, {
         jobDescription: data.jobDescription,
         jobTitle: data.jobTitle,
         company: data.companyName
-      });
+      }, gapContextForGeneration);
       
       if (!result.resume.logline || !result.resume.experiences) {
         throw new Error("Invalid response from AI. Please try again.");
@@ -451,6 +553,7 @@ export default function JobApplicationPage() {
       setCoverLetter({ coverLetter: result.coverLetter });
       setRanking(null);
       setGapAnalysis(null);
+      gapAnalysisRef.current = null;
       
       toast({ title: "Generated!", description: "Your tailored resume and cover letter are ready and saved." });
     } catch (e: any) {
@@ -472,12 +575,14 @@ export default function JobApplicationPage() {
   const handleSkipJob = () => {
     setShowGapWarning(false);
     setGapAnalysis(null);
+    gapAnalysisRef.current = null;
     form.reset();
     toast({ title: "Job Skipped", description: "You can try a different job that better matches your skills." });
   };
 
   const handleGenerateAnyway = async () => {
     const data = form.getValues();
+    // gapAnalysis state is already set from the warning flow
     await handleGenerateBothDirect(data);
   };
 
@@ -492,22 +597,68 @@ export default function JobApplicationPage() {
     const companyName = form.getValues("companyName") || "Company";
     const jobTitle = form.getValues("jobTitle") || "Position";
     
+    const prefs = settings.sectionPreferences || defaultSectionPreferences;
+    const getSectionTitle = (key: string, defaultTitle: string) => {
+      const pref = prefs[key];
+      if (!pref) return defaultTitle;
+      if (pref.title === undefined) return defaultTitle;
+      return pref.title;
+    };
+    const isHidden = (key: string) => prefs[key]?.hidden === true;
+    
     let content = `${profile.firstName} ${profile.lastName}\n`;
-    content += `${profile.email} | ${profile.phone} | ${profile.location}\n\n`;
-    content += `=== SUMMARY ===\n`;
-    content += (resume.logline || []).map(line => `• ${line}`).join("\n") + "\n\n";
-    content += `=== SKILLS ===\n`;
-    content += `${resume.technologies || ""}\n\n`;
-    if (resume.relevantSkills && resume.relevantSkills.length > 0) {
-      content += `Key Skills: ${resume.relevantSkills.join(", ")}\n\n`;
-    }
-    content += `=== EXPERIENCE ===\n`;
-    (resume.experiences || []).forEach(exp => {
-      content += `\n${exp.title}\n`;
-      content += `${exp.company} | ${exp.location} | ${exp.start} - ${exp.end}\n`;
-      (exp.bullets || []).forEach(bullet => {
-        content += `  • ${bullet}\n`;
-      });
+    content += `${profile.email} | ${profile.phone}${profile.linkedinUrl ? ` | ${profile.linkedinUrl}` : ""}\n\n`;
+    
+    const sectionGenerators: Record<string, () => string> = {
+      summary: () => {
+        if (isHidden("summary")) return "";
+        const title = getSectionTitle("summary", "");
+        let s = title ? `=== ${title.toUpperCase()} ===\n` : "";
+        s += (resume.logline || []).map(line => `• ${line}`).join("\n") + "\n\n";
+        return s;
+      },
+      skills: () => {
+        if (isHidden("skills")) return "";
+        const title = getSectionTitle("skills", "SKILLS");
+        let s = `=== ${title.toUpperCase()} ===\n`;
+        s += `${resume.technologies || ""}\n`;
+        if (resume.relevantSkills && resume.relevantSkills.length > 0) {
+          s += `Key Skills: ${resume.relevantSkills.join(", ")}\n`;
+        }
+        s += "\n";
+        return s;
+      },
+      experience: () => {
+        if (isHidden("experience")) return "";
+        const title = getSectionTitle("experience", "EXPERIENCE");
+        let s = `=== ${title.toUpperCase()} ===\n`;
+        (resume.experiences || []).forEach(exp => {
+          s += `\n${exp.title}\n`;
+          s += `${exp.company} | ${exp.location} | ${exp.start} - ${exp.end}\n`;
+          (exp.bullets || []).forEach(bullet => {
+            s += `  • ${bullet}\n`;
+          });
+        });
+        s += "\n";
+        return s;
+      },
+      education: () => {
+        if (isHidden("education")) return "";
+        const title = getSectionTitle("education", "EDUCATION");
+        let s = `=== ${title.toUpperCase()} ===\n`;
+        (profile.education || []).forEach(edu => {
+          s += `${edu.degree} in ${edu.field}\n`;
+          s += `${edu.school} | ${edu.startDate} - ${edu.endDate}\n\n`;
+        });
+        return s;
+      }
+    };
+    
+    settings.sectionOrder.forEach(section => {
+      const generator = sectionGenerators[section];
+      if (generator) {
+        content += generator();
+      }
     });
     
     const blob = new Blob([content], { type: "text/plain" });
@@ -536,6 +687,189 @@ export default function JobApplicationPage() {
     toast({ title: "Downloaded!", description: "Cover letter saved as text file." });
   };
 
+  const downloadCoverLetterFile = (format: "pdf" | "docx") => {
+    if (!savedApplicationRef.current) {
+      toast({ title: "Error", description: "Please generate a cover letter first.", variant: "destructive" });
+      return;
+    }
+    window.open(`/api/applications/${savedApplicationRef.current}/cover-letter.${format}`, "_blank");
+    toast({ title: "Downloading!", description: `Cover letter ${format.toUpperCase()} is being generated.` });
+  };
+
+  const loadTrainingData = async () => {
+    if (!savedApplicationRef.current) return;
+    try {
+      const response = await fetch(`/api/applications/${savedApplicationRef.current}/training`, {
+        credentials: "include"
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTrainings(data.trainings || []);
+        setReadinessScore(data.readinessScore || 0);
+      }
+      
+      const sims = await api.getSimulations(savedApplicationRef.current);
+      setSimulations(sims);
+    } catch (e) {
+      console.error("Failed to load training data:", e);
+    }
+  };
+
+  const handleStartSimulation = async () => {
+    if (!savedApplicationRef.current) {
+      toast({ title: "Save application first", description: "Generate a resume before starting mock interviews.", variant: "destructive" });
+      return;
+    }
+    setIsCreatingSimulation(true);
+    try {
+      const simulation = await api.createSimulation(savedApplicationRef.current, simulationDifficulty);
+      setActiveSimulation(simulation);
+      setSimulations(prev => [simulation, ...prev]);
+      setSimulationAnswer("");
+      setLastEvaluation(null);
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to create mock interview.", variant: "destructive" });
+    } finally {
+      setIsCreatingSimulation(false);
+    }
+  };
+
+  const handleSubmitSimulationAnswer = async () => {
+    if (!activeSimulation || !simulationAnswer.trim()) return;
+    const answeredIndex = activeSimulation.currentQuestionIndex;
+    setIsSubmittingAnswer(true);
+    try {
+      const { simulation, evaluation } = await api.submitAnswer(
+        activeSimulation.id, 
+        answeredIndex, 
+        simulationAnswer
+      );
+      setActiveSimulation(simulation);
+      setLastEvaluation({ evaluation, questionIndex: answeredIndex });
+      setSimulationAnswer("");
+      setSimulations(prev => prev.map(s => s.id === simulation.id ? simulation : s));
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to submit answer.", variant: "destructive" });
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
+  };
+
+  const handleNextSimulationQuestion = () => {
+    setLastEvaluation(null);
+  };
+
+  const handleCompleteSimulation = async () => {
+    if (!activeSimulation) return;
+    setIsCompletingSimulation(true);
+    try {
+      const completed = await api.completeSimulation(activeSimulation.id);
+      setActiveSimulation(completed);
+      setSimulations(prev => prev.map(s => s.id === completed.id ? completed : s));
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to complete interview.", variant: "destructive" });
+    } finally {
+      setIsCompletingSimulation(false);
+    }
+  };
+
+  const handleExitSimulation = () => {
+    setActiveSimulation(null);
+    setLastEvaluation(null);
+    setSimulationAnswer("");
+  };
+
+  const handleResumeSimulation = (simulation: InterviewSimulation) => {
+    setActiveSimulation(simulation);
+    setSimulationAnswer("");
+    setLastEvaluation(null);
+  };
+
+  const handleStartTraining = async () => {
+    if (!savedApplicationRef.current) {
+      toast({ title: "Save application first", description: "Generate a resume before starting interview training.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingTraining(true);
+    try {
+      const response = await fetch(`/api/applications/${savedApplicationRef.current}/training`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ category: trainingCategory, difficulty: trainingDifficulty })
+      });
+      if (!response.ok) throw new Error("Failed to generate training");
+      const training = await response.json();
+      setSelectedTraining(training);
+      setCurrentQuestionIndex(0);
+      setShowAnswer(false);
+      await loadTrainingData();
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to generate interview training. Try again.", variant: "destructive" });
+    } finally {
+      setIsGeneratingTraining(false);
+    }
+  };
+
+  const handleMarkQuestion = async (isCorrect: boolean) => {
+    if (!selectedTraining) return;
+    const newAnswered = currentQuestionIndex + 1;
+    const newCorrect = selectedTraining.correctAnswers + (isCorrect ? 1 : 0);
+    
+    try {
+      const response = await fetch(`/api/training/${selectedTraining.id}/progress`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ answered: newAnswered, correct: newCorrect })
+      });
+      if (response.ok) {
+        const updated = await response.json();
+        setSelectedTraining(updated);
+        if (currentQuestionIndex < selectedTraining.questions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+          setShowAnswer(false);
+        } else {
+          setSelectedTraining(null);
+          await loadTrainingData();
+          toast({ title: "Training Complete!", description: `You scored ${newCorrect}/${newAnswered} on this session.` });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update progress:", e);
+    }
+  };
+
+  const handleUpdateInterviewDate = async (date: Date | undefined) => {
+    if (!savedApplicationRef.current) {
+      toast({ title: "Error", description: "Please save the application first", variant: "destructive" });
+      return;
+    }
+    
+    setIsUpdatingInterviewDate(true);
+    try {
+      const response = await fetch(`/api/applications/${savedApplicationRef.current}/interview-date`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ interviewDate: date?.toISOString() || null })
+      });
+      
+      if (!response.ok) throw new Error("Failed to update interview date");
+      
+      setInterviewDate(date);
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast({ 
+        title: date ? "Interview Scheduled" : "Interview Date Cleared", 
+        description: date ? `Interview set for ${format(date, "PPP")}` : "Interview date has been removed" 
+      });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update interview date", variant: "destructive" });
+    } finally {
+      setIsUpdatingInterviewDate(false);
+    }
+  };
+
   const handleEvaluateRanking = async () => {
     if (!savedApplicationRef.current || !resume) {
       toast({ title: "Resume Required", description: "Generate a resume first before evaluating.", variant: "destructive" });
@@ -551,6 +885,43 @@ export default function JobApplicationPage() {
       toast({ title: "Error", description: e.message || "Failed to evaluate resume.", variant: "destructive" });
     } finally {
       setIsEvaluatingRanking(false);
+    }
+  };
+
+  const handleApplyRecommendations = async () => {
+    if (!savedApplicationRef.current || !resume || !ranking) {
+      toast({ title: "Requirements Missing", description: "Resume and ranking required to apply recommendations.", variant: "destructive" });
+      return;
+    }
+
+    setIsApplyingRecommendations(true);
+    try {
+      const response = await fetch(`/api/applications/${savedApplicationRef.current}/apply-recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to apply recommendations");
+      }
+
+      const result = await response.json();
+      setResume(result.resume);
+      setRanking(null);
+      setPreviewKey(prev => prev + 1);
+      setIsEditingResume(false);
+      setIsEditingExperience(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      toast({ 
+        title: "Recommendations Applied", 
+        description: "Your resume has been improved. Re-evaluate to see the new score." 
+      });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to apply recommendations.", variant: "destructive" });
+    } finally {
+      setIsApplyingRecommendations(false);
     }
   };
 
@@ -576,13 +947,13 @@ export default function JobApplicationPage() {
   if (!profile) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-12 animate-in fade-in duration-500">
+    <div className="grid gap-6 lg:gap-8 lg:grid-cols-12 animate-in fade-in duration-500">
       
       {/* Input Section */}
-      <div className="lg:col-span-5 space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-serif font-bold">New Application</h1>
-          <p className="text-muted-foreground">Paste the job description and let AI tailor your application.</p>
+      <div className="lg:col-span-5 space-y-4 sm:space-y-8">
+        <div className="space-y-1 sm:space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold">New Application</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Paste the job description and let AI tailor your application.</p>
         </div>
 
         <Card className="border-l-4 border-l-primary shadow-sm">
@@ -599,7 +970,7 @@ export default function JobApplicationPage() {
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Job Title</Label>
                 <Input placeholder="Senior Frontend Dev" {...form.register("jobTitle")} />
@@ -627,6 +998,58 @@ export default function JobApplicationPage() {
               </Select>
             </div>
 
+            {savedApplicationRef.current && (
+              <div className="space-y-2">
+                <Label>Interview Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                      disabled={isUpdatingInterviewDate}
+                      data-testid="button-interview-date"
+                    >
+                      <CalendarIcon className="mr-2 size-4" />
+                      {interviewDate ? (
+                        <span>
+                          {format(interviewDate, "PPP")}
+                          {differenceInDays(interviewDate, new Date()) >= 0 && (
+                            <span className="ml-2 text-muted-foreground">
+                              ({differenceInDays(interviewDate, new Date())} days left)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Set interview date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={interviewDate}
+                      onSelect={handleUpdateInterviewDate}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                    />
+                    {interviewDate && (
+                      <div className="p-2 border-t">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full text-destructive"
+                          onClick={() => handleUpdateInterviewDate(undefined)}
+                          data-testid="button-clear-interview-date"
+                        >
+                          Clear Date
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <Button 
                 className="flex-1"
@@ -648,15 +1071,15 @@ export default function JobApplicationPage() {
 
         {/* Gap Analysis Warning Dialog */}
         <Dialog open={showGapWarning} onOpenChange={setShowGapWarning}>
-          <DialogContent className="max-w-lg max-h-[500px] flex flex-col">
-            <DialogHeader className="flex-shrink-0">
+          <DialogContent className="max-w-md !p-0 overflow-hidden" style={{ maxHeight: '500px' }}>
+            <div className="p-4 border-b">
               <DialogTitle className="flex items-center gap-2 text-orange-600">
                 <AlertTriangle className="size-5" />
                 Low Job Match Detected
               </DialogTitle>
-            </DialogHeader>
+            </div>
             {gapAnalysis && (
-              <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+              <div className="overflow-y-auto p-4 space-y-3" style={{ maxHeight: '340px' }}>
                 <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                   <div>
                     <div className="text-xs text-muted-foreground">Match</div>
@@ -725,7 +1148,7 @@ export default function JobApplicationPage() {
                 )}
               </div>
             )}
-            <div className="flex gap-3 pt-3 flex-shrink-0 border-t">
+            <div className="flex gap-3 p-4 border-t bg-muted/30">
               <Button variant="outline" className="flex-1" onClick={handleSkipJob} data-testid="button-skip-job">
                 <X className="size-4 mr-2" />
                 Skip
@@ -748,12 +1171,13 @@ export default function JobApplicationPage() {
       </div>
 
       {/* Results Section */}
-      <div className="lg:col-span-7 space-y-8">
+      <div className="lg:col-span-7 space-y-4 sm:space-y-8">
         <Tabs defaultValue="resume" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="resume">Tailored Resume</TabsTrigger>
-            <TabsTrigger value="cover-letter">Cover Letter</TabsTrigger>
-            <TabsTrigger value="ranking">Score</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="resume" className="text-xs sm:text-sm">Resume</TabsTrigger>
+            <TabsTrigger value="cover-letter" className="text-xs sm:text-sm">Cover Letter</TabsTrigger>
+            <TabsTrigger value="ranking" className="text-xs sm:text-sm">Score</TabsTrigger>
+            <TabsTrigger value="interview" className="text-xs sm:text-sm" onClick={loadTrainingData}>Interview</TabsTrigger>
           </TabsList>
 
           <TabsContent value="resume" className="space-y-4 mt-4">
@@ -1174,10 +1598,28 @@ export default function JobApplicationPage() {
                           <Copy className="size-4 mr-2" />
                           Copy
                         </Button>
-                        <Button variant="outline" size="sm" onClick={downloadCoverLetter} data-testid="button-download-cover-letter">
-                          <Download className="size-4 mr-2" />
-                          Download
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-download-cover-letter">
+                              <Download className="size-4 mr-2" />
+                              Download
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => downloadCoverLetterFile("pdf")} data-testid="button-download-cover-letter-pdf">
+                              <FileDown className="size-4 mr-2" />
+                              Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => downloadCoverLetterFile("docx")} data-testid="button-download-cover-letter-docx">
+                              <FileText className="size-4 mr-2" />
+                              Download DOCX
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={downloadCoverLetter} data-testid="button-download-cover-letter-txt">
+                              <FileText className="size-4 mr-2" />
+                              Download TXT
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </>
                     )}
                   </div>
@@ -1365,10 +1807,30 @@ export default function JobApplicationPage() {
                 {/* Improvements */}
                 <Card className="border-blue-200">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2 text-blue-600">
-                      <TrendingUp className="size-4" />
-                      Recommended Improvements
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2 text-blue-600">
+                        <TrendingUp className="size-4" />
+                        Recommended Improvements
+                      </CardTitle>
+                      <Button 
+                        size="sm"
+                        onClick={handleApplyRecommendations}
+                        disabled={isApplyingRecommendations}
+                        data-testid="button-apply-recommendations"
+                      >
+                        {isApplyingRecommendations ? (
+                          <>
+                            <Loader2 className="size-4 mr-2 animate-spin" />
+                            Applying...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="size-4 mr-2" />
+                            Apply Recommendations
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2 text-sm">
@@ -1379,6 +1841,9 @@ export default function JobApplicationPage() {
                         </li>
                       ))}
                     </ul>
+                    <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                      This will improve your resume wording based on the feedback above. Your original experience stays the same.
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -1403,6 +1868,459 @@ export default function JobApplicationPage() {
                     )}
                   </Button>
                 </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="interview" className="mt-4">
+            {!applicationLoaded ? (
+              <div className="h-[400px] flex flex-col items-center justify-center border-2 border-dashed rounded-lg text-muted-foreground bg-muted/10">
+                <GraduationCap className="size-12 mb-4 opacity-20" />
+                <p>Generate a resume first to start interview training</p>
+              </div>
+            ) : selectedTraining ? (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        {selectedTraining.category === "technical" ? <Brain className="size-5" /> : <Users className="size-5" />}
+                        {selectedTraining.skillFocus}
+                      </CardTitle>
+                      <CardDescription>
+                        Question {currentQuestionIndex + 1} of {selectedTraining.questions.length} • {selectedTraining.difficulty.toUpperCase()} difficulty
+                      </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedTraining(null)} data-testid="button-exit-training">
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                  <Progress value={((currentQuestionIndex) / selectedTraining.questions.length) * 100} className="mt-2" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="font-medium text-lg">{selectedTraining.questions[currentQuestionIndex]?.question}</p>
+                  </div>
+                  
+                  {!showAnswer ? (
+                    <div className="flex justify-center">
+                      <Button onClick={() => setShowAnswer(true)} data-testid="button-show-answer">
+                        <Eye className="size-4 mr-2" />
+                        Show Answer
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Model Answer:</h4>
+                        <p className="text-sm">{selectedTraining.questions[currentQuestionIndex]?.answer}</p>
+                      </div>
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">Tips:</h4>
+                        <p className="text-sm">{selectedTraining.questions[currentQuestionIndex]?.explanation}</p>
+                      </div>
+                      <Separator />
+                      <div className="flex flex-col items-center gap-2">
+                        <p className="text-sm text-muted-foreground">How did you do?</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="border-red-300 hover:bg-red-50" onClick={() => handleMarkQuestion(false)} data-testid="button-mark-incorrect">
+                            <XCircle className="size-4 mr-2 text-red-500" />
+                            Need Practice
+                          </Button>
+                          <Button variant="outline" className="border-green-300 hover:bg-green-50" onClick={() => handleMarkQuestion(true)} data-testid="button-mark-correct">
+                            <CheckCircle className="size-4 mr-2 text-green-500" />
+                            Got It
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                <Card className="border-2">
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-center sm:text-left">
+                        <h3 className="text-lg font-semibold">Interview Readiness</h3>
+                        <p className="text-muted-foreground text-sm">Based on your training progress</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className={`text-4xl font-bold ${readinessScore >= 70 ? "text-green-600" : readinessScore >= 40 ? "text-yellow-600" : "text-red-600"}`}>
+                          {readinessScore}%
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {readinessScore >= 70 ? "Ready!" : readinessScore >= 40 ? "Building" : "Start Training"}
+                        </div>
+                      </div>
+                    </div>
+                    <Progress value={readinessScore} className="mt-4" />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <GraduationCap className="size-5" />
+                      Start New Training Session
+                    </CardTitle>
+                    <CardDescription>
+                      Practice interview questions tailored to this job application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select value={trainingCategory} onValueChange={(v: "technical" | "soft") => setTrainingCategory(v)}>
+                          <SelectTrigger data-testid="select-training-category">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="technical">
+                              <div className="flex items-center gap-2">
+                                <Brain className="size-4" />
+                                Technical Skills
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="soft">
+                              <div className="flex items-center gap-2">
+                                <Users className="size-4" />
+                                Soft Skills
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Difficulty</Label>
+                        <Select value={trainingDifficulty} onValueChange={(v: "easy" | "medium" | "hard") => setTrainingDifficulty(v)}>
+                          <SelectTrigger data-testid="select-training-difficulty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Button className="w-full" onClick={handleStartTraining} disabled={isGeneratingTraining} data-testid="button-start-training">
+                      {isGeneratingTraining ? (
+                        <>
+                          <Loader2 className="size-4 mr-2 animate-spin" />
+                          Generating Questions...
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="size-4 mr-2" />
+                          Start Training
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {trainings.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Training History</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {trainings.map((t) => (
+                          <div key={t.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" onClick={() => { setSelectedTraining(t); setCurrentQuestionIndex(t.answeredQuestions); setShowAnswer(false); }} data-testid={`training-item-${t.id}`}>
+                            <div className="flex items-center gap-3">
+                              {t.category === "technical" ? <Brain className="size-4 text-blue-500" /> : <Users className="size-4 text-purple-500" />}
+                              <div>
+                                <p className="font-medium text-sm">{t.skillFocus}</p>
+                                <p className="text-xs text-muted-foreground">{t.difficulty} • {t.answeredQuestions}/{t.totalQuestions} completed</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={`text-sm font-semibold ${t.readinessScore >= 70 ? "text-green-600" : t.readinessScore >= 40 ? "text-yellow-600" : "text-muted-foreground"}`}>
+                                {t.readinessScore}%
+                              </div>
+                              <ChevronRight className="size-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Separator className="my-6" />
+
+                {activeSimulation ? (
+                  activeSimulation.status === "completed" ? (
+                    <Card className="border-2 border-green-200">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            <CheckCircle className="size-5 text-green-600" />
+                            Mock Interview Complete
+                          </CardTitle>
+                          <Button variant="ghost" size="sm" onClick={handleExitSimulation} data-testid="button-exit-simulation">
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                        <CardDescription>
+                          {activeSimulation.difficulty.toUpperCase()} level • {activeSimulation.questions.length} questions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="text-center py-4">
+                          <div className={`text-5xl font-bold ${(activeSimulation.overallScore || 0) >= 70 ? "text-green-600" : (activeSimulation.overallScore || 0) >= 40 ? "text-yellow-600" : "text-red-600"}`}>
+                            {activeSimulation.overallScore}%
+                          </div>
+                          <p className="text-muted-foreground mt-1">Overall Score</p>
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                          <h4 className="font-semibold mb-2">Interview Feedback</h4>
+                          <p className="text-sm whitespace-pre-wrap">{activeSimulation.overallFeedback}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2">
+                              <Brain className="size-5" />
+                              Mock Interview
+                            </CardTitle>
+                            <CardDescription>
+                              Question {activeSimulation.currentQuestionIndex + 1} of {activeSimulation.questions.length} • {activeSimulation.difficulty.toUpperCase()} level
+                            </CardDescription>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={handleExitSimulation} data-testid="button-exit-simulation">
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                        <Progress value={(activeSimulation.currentQuestionIndex / activeSimulation.questions.length) * 100} className="mt-2" />
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {activeSimulation.currentQuestionIndex < activeSimulation.questions.length || lastEvaluation ? (
+                          <>
+                            {lastEvaluation ? (
+                              <div className="space-y-4">
+                                <div className="p-4 bg-muted/50 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                      activeSimulation.questions[lastEvaluation.questionIndex]?.type === "behavioral" ? "bg-blue-100 text-blue-700" :
+                                      activeSimulation.questions[lastEvaluation.questionIndex]?.type === "technical" ? "bg-purple-100 text-purple-700" :
+                                      activeSimulation.questions[lastEvaluation.questionIndex]?.type === "situational" ? "bg-orange-100 text-orange-700" :
+                                      "bg-green-100 text-green-700"
+                                    }`}>
+                                      {activeSimulation.questions[lastEvaluation.questionIndex]?.type}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">Question {lastEvaluation.questionIndex + 1}</span>
+                                  </div>
+                                  <p className="font-medium text-lg">{activeSimulation.questions[lastEvaluation.questionIndex]?.question}</p>
+                                </div>
+
+                                <div className="text-center">
+                                  <div className={`text-3xl font-bold ${lastEvaluation.evaluation.score >= 70 ? "text-green-600" : lastEvaluation.evaluation.score >= 40 ? "text-yellow-600" : "text-red-600"}`}>
+                                    {lastEvaluation.evaluation.score}%
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">Answer Score</p>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-4">
+                                  <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                    <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2 flex items-center gap-1">
+                                      <CheckCircle className="size-4" />
+                                      Strengths
+                                    </h4>
+                                    <ul className="text-sm space-y-1">
+                                      {lastEvaluation.evaluation.strengths.map((s: string, i: number) => (
+                                        <li key={i}>• {s}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                                    <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2 flex items-center gap-1">
+                                      <Lightbulb className="size-4" />
+                                      Improvements
+                                    </h4>
+                                    <ul className="text-sm space-y-1">
+                                      {lastEvaluation.evaluation.improvements.map((s: string, i: number) => (
+                                        <li key={i}>• {s}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+
+                                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                  <h4 className="font-semibold text-blue-700 dark:text-blue-400 mb-2">Sample Strong Answer</h4>
+                                  <p className="text-sm">{lastEvaluation.evaluation.sampleAnswer}</p>
+                                </div>
+
+                                <div className="flex justify-center gap-2">
+                                  {activeSimulation.currentQuestionIndex < activeSimulation.questions.length ? (
+                                    <Button onClick={handleNextSimulationQuestion} data-testid="button-next-question">
+                                      Next Question
+                                      <ArrowRight className="size-4 ml-2" />
+                                    </Button>
+                                  ) : (
+                                    <Button onClick={handleCompleteSimulation} disabled={isCompletingSimulation} data-testid="button-complete-simulation">
+                                      {isCompletingSimulation ? (
+                                        <>
+                                          <Loader2 className="size-4 mr-2 animate-spin" />
+                                          Generating Results...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="size-4 mr-2" />
+                                          Complete Interview
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : activeSimulation.currentQuestionIndex < activeSimulation.questions.length ? (
+                              <div className="space-y-4">
+                                <div className="p-4 bg-muted/50 rounded-lg">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                      activeSimulation.questions[activeSimulation.currentQuestionIndex]?.type === "behavioral" ? "bg-blue-100 text-blue-700" :
+                                      activeSimulation.questions[activeSimulation.currentQuestionIndex]?.type === "technical" ? "bg-purple-100 text-purple-700" :
+                                      activeSimulation.questions[activeSimulation.currentQuestionIndex]?.type === "situational" ? "bg-orange-100 text-orange-700" :
+                                      "bg-green-100 text-green-700"
+                                    }`}>
+                                      {activeSimulation.questions[activeSimulation.currentQuestionIndex]?.type}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">Question {activeSimulation.currentQuestionIndex + 1}</span>
+                                  </div>
+                                  <p className="font-medium text-lg">{activeSimulation.questions[activeSimulation.currentQuestionIndex]?.question}</p>
+                                </div>
+                                <Textarea
+                                  value={simulationAnswer}
+                                  onChange={(e) => setSimulationAnswer(e.target.value)}
+                                  placeholder="Type your answer here. Be specific and provide examples from your experience..."
+                                  className="min-h-[150px]"
+                                  data-testid="input-simulation-answer"
+                                />
+                                <Button 
+                                  className="w-full" 
+                                  onClick={handleSubmitSimulationAnswer} 
+                                  disabled={isSubmittingAnswer || !simulationAnswer.trim()}
+                                  data-testid="button-submit-answer"
+                                >
+                                  {isSubmittingAnswer ? (
+                                    <>
+                                      <Loader2 className="size-4 mr-2 animate-spin" />
+                                      Evaluating Answer...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="size-4 mr-2" />
+                                      Submit Answer
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  )
+                ) : (
+                  <>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Brain className="size-5" />
+                          Start Mock Interview
+                        </CardTitle>
+                        <CardDescription>
+                          Practice a full interview simulation with AI feedback on each answer
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Difficulty Level</Label>
+                          <Select value={simulationDifficulty} onValueChange={(v: SimulationDifficulty) => setSimulationDifficulty(v)}>
+                            <SelectTrigger data-testid="select-simulation-difficulty">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="entry">Entry Level (5 questions)</SelectItem>
+                              <SelectItem value="mid">Mid Level (7 questions)</SelectItem>
+                              <SelectItem value="senior">Senior Level (8 questions)</SelectItem>
+                              <SelectItem value="executive">Executive Level (8 questions)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button className="w-full" onClick={handleStartSimulation} disabled={isCreatingSimulation} data-testid="button-start-simulation">
+                          {isCreatingSimulation ? (
+                            <>
+                              <Loader2 className="size-4 mr-2 animate-spin" />
+                              Generating Questions...
+                            </>
+                          ) : (
+                            <>
+                              <Brain className="size-4 mr-2" />
+                              Start Mock Interview
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {simulations.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base">Mock Interview History</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {simulations.map((sim) => (
+                              <div 
+                                key={sim.id} 
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer" 
+                                onClick={() => handleResumeSimulation(sim)}
+                                data-testid={`simulation-item-${sim.id}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  {sim.status === "completed" ? (
+                                    <CheckCircle className="size-4 text-green-500" />
+                                  ) : (
+                                    <Brain className="size-4 text-blue-500" />
+                                  )}
+                                  <div>
+                                    <p className="font-medium text-sm">{sim.difficulty.toUpperCase()} Level Interview</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {sim.status === "completed" 
+                                        ? `Score: ${sim.overallScore}%` 
+                                        : `${sim.currentQuestionIndex}/${sim.questions.length} answered`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {sim.status === "completed" ? (
+                                    <div className={`text-sm font-semibold ${(sim.overallScore || 0) >= 70 ? "text-green-600" : (sim.overallScore || 0) >= 40 ? "text-yellow-600" : "text-red-600"}`}>
+                                      {sim.overallScore}%
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">In Progress</span>
+                                  )}
+                                  <ChevronRight className="size-4 text-muted-foreground" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </TabsContent>

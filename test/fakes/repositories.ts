@@ -136,6 +136,7 @@ export function createMemoryRepositories(): MemoryRepositories {
           id: randomUUID(),
           profileId,
           company: data.company,
+          slug: null,
           jobTitle: data.jobTitle,
           jobDescription: data.jobDescription ?? "",
           status: data.status ?? "created",
@@ -143,6 +144,7 @@ export function createMemoryRepositories(): MemoryRepositories {
           generatedCoverLetter: null,
           resumeSettings: null,
           resumeRanking: null,
+          interviewDate: null,
           createdAt: now,
           statusUpdatedAt: now,
         };

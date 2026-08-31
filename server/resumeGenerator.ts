@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import { chromium } from "playwright-core";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } from "docx";
 
 export interface ResumeData {
@@ -7,7 +7,7 @@ export interface ResumeData {
     lastName: string;
     email: string;
     phone: string;
-    location: string;
+    linkedinUrl: string;
     headline: string;
   };
   logline: string[];
@@ -56,7 +56,7 @@ const defaultSettings: ResumeSettings = {
   primaryColor: "#0f766e",
   fontFamily: "Inter",
   fontSize: "medium",
-  sectionOrder: ["summary", "skills", "experience", "education"],
+  sectionOrder: ["summary", "experience", "education", "skills"],
   sectionPreferences: defaultSectionPreferences
 };
 
@@ -84,7 +84,8 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
   const getSectionTitle = (key: string, defaultTitle: string) => {
     const pref = prefs[key];
     if (!pref) return defaultTitle;
-    return pref.title !== undefined ? pref.title : defaultTitle;
+    if (pref.title === undefined) return defaultTitle;
+    return pref.title;
   };
   
   const isHidden = (key: string) => prefs[key]?.hidden === true;
@@ -251,7 +252,7 @@ function generateModernHTML(data: ResumeData, settings: ResumeSettings): string 
     <body>
       <header class="header">
         <h1>${data.profile.firstName} ${data.profile.lastName}</h1>
-        <div class="contact">${data.profile.email} • ${data.profile.phone} • ${data.profile.location}</div>
+        <div class="contact">${data.profile.email} • ${data.profile.phone}${data.profile.linkedinUrl ? ` • ${data.profile.linkedinUrl}` : ""}</div>
         <div class="headline">${data.profile.headline}</div>
       </header>
       ${orderedSections}
@@ -268,7 +269,8 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
   const getSectionTitle = (key: string, defaultTitle: string) => {
     const pref = prefs[key];
     if (!pref) return defaultTitle;
-    return pref.title !== undefined ? pref.title : defaultTitle;
+    if (pref.title === undefined) return defaultTitle;
+    return pref.title;
   };
   
   const isHidden = (key: string) => prefs[key]?.hidden === true;
@@ -376,7 +378,7 @@ function generateClassicHTML(data: ResumeData, settings: ResumeSettings): string
     <body>
       <header class="header">
         <h1>${data.profile.firstName} ${data.profile.lastName}</h1>
-        <div class="contact">${data.profile.email} | ${data.profile.phone} | ${data.profile.location}</div>
+        <div class="contact">${data.profile.email} | ${data.profile.phone}${data.profile.linkedinUrl ? ` | ${data.profile.linkedinUrl}` : ""}</div>
       </header>
       ${orderedSections}
     </body>
@@ -392,7 +394,8 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
   const getSectionTitle = (key: string, defaultTitle: string) => {
     const pref = prefs[key];
     if (!pref) return defaultTitle;
-    return pref.title !== undefined ? pref.title : defaultTitle;
+    if (pref.title === undefined) return defaultTitle;
+    return pref.title;
   };
   
   const isHidden = (key: string) => prefs[key]?.hidden === true;
@@ -482,7 +485,7 @@ function generateMinimalHTML(data: ResumeData, settings: ResumeSettings): string
     <body>
       <header class="header">
         <h1>${data.profile.firstName} ${data.profile.lastName}</h1>
-        <div class="contact">${data.profile.email} · ${data.profile.phone} · ${data.profile.location}</div>
+        <div class="contact">${data.profile.email} · ${data.profile.phone}${data.profile.linkedinUrl ? ` · ${data.profile.linkedinUrl}` : ""}</div>
       </header>
       ${orderedSections}
     </body>
@@ -498,7 +501,8 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
   const getSectionTitle = (key: string, defaultTitle: string) => {
     const pref = prefs[key];
     if (!pref) return defaultTitle;
-    return pref.title !== undefined ? pref.title : defaultTitle;
+    if (pref.title === undefined) return defaultTitle;
+    return pref.title;
   };
   
   const isHidden = (key: string) => prefs[key]?.hidden === true;
@@ -627,8 +631,7 @@ function generateCreativeHTML(data: ResumeData, settings: ResumeSettings): strin
         <h1>${data.profile.firstName}<br>${data.profile.lastName}</h1>
         <div class="contact">
           ${data.profile.email}<br>
-          ${data.profile.phone}<br>
-          ${data.profile.location}
+          ${data.profile.phone}${data.profile.linkedinUrl ? `<br>${data.profile.linkedinUrl}` : ""}
         </div>
         <h3>Quick Skills</h3>
         <div class="skills-list">${data.relevantSkills?.slice(0, 8).join("<br>") || data.technologies.split(",").slice(0, 8).join("<br>")}</div>
@@ -659,14 +662,14 @@ export function generateResumeHTML(data: ResumeData, settings: Partial<ResumeSet
 export async function generateResumePDF(data: ResumeData, settings: Partial<ResumeSettings> = {}): Promise<Buffer> {
   const html = generateResumeHTML(data, settings);
   
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium",
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
   });
   
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  await page.setContent(html, { waitUntil: "networkidle" });
   
   const pdf = await page.pdf({
     format: "Letter",
@@ -680,6 +683,16 @@ export async function generateResumePDF(data: ResumeData, settings: Partial<Resu
 
 export async function generateResumeDOCX(data: ResumeData, settings: Partial<ResumeSettings> = {}): Promise<Buffer> {
   const mergedSettings = { ...defaultSettings, ...settings };
+  const prefs = { ...defaultSectionPreferences, ...mergedSettings.sectionPreferences };
+  
+  const getSectionTitle = (key: string, defaultTitle: string) => {
+    const pref = prefs[key];
+    if (!pref) return defaultTitle;
+    if (pref.title === undefined) return defaultTitle;
+    return pref.title;
+  };
+  
+  const isHidden = (key: string) => prefs[key]?.hidden === true;
   
   const children: Paragraph[] = [];
   
@@ -690,7 +703,7 @@ export async function generateResumeDOCX(data: ResumeData, settings: Partial<Res
       alignment: AlignmentType.CENTER,
     }),
     new Paragraph({
-      text: `${data.profile.email} | ${data.profile.phone} | ${data.profile.location}`,
+      text: `${data.profile.email} | ${data.profile.phone}${data.profile.linkedinUrl ? ` | ${data.profile.linkedinUrl}` : ""}`,
       alignment: AlignmentType.CENTER,
     }),
     new Paragraph({ text: "" })
@@ -698,14 +711,18 @@ export async function generateResumeDOCX(data: ResumeData, settings: Partial<Res
   
   const sectionGenerators: Record<string, () => Paragraph[]> = {
     summary: () => {
+      if (isHidden("summary")) return [];
       const paras: Paragraph[] = [];
-      paras.push(
-        new Paragraph({
-          text: "PROFESSIONAL SUMMARY",
-          heading: HeadingLevel.HEADING_1,
-          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-        })
-      );
+      const title = getSectionTitle("summary", "");
+      if (title) {
+        paras.push(
+          new Paragraph({
+            text: title.toUpperCase(),
+            heading: HeadingLevel.HEADING_1,
+            border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+          })
+        );
+      }
       data.logline.forEach(line => {
         paras.push(new Paragraph({
           children: [new TextRun({ text: `• ${line}` })]
@@ -715,27 +732,35 @@ export async function generateResumeDOCX(data: ResumeData, settings: Partial<Res
       return paras;
     },
     skills: () => {
-      return [
-        new Paragraph({
-          text: "SKILLS",
+      if (isHidden("skills")) return [];
+      const title = getSectionTitle("skills", "Skills");
+      const paras: Paragraph[] = [];
+      if (title) {
+        paras.push(new Paragraph({
+          text: title.toUpperCase(),
           heading: HeadingLevel.HEADING_1,
           border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-        }),
-        new Paragraph({
-          text: data.relevantSkills?.join(", ") || data.technologies
-        }),
-        new Paragraph({ text: "" })
-      ];
+        }));
+      }
+      paras.push(new Paragraph({
+        text: data.relevantSkills?.join(", ") || data.technologies
+      }));
+      paras.push(new Paragraph({ text: "" }));
+      return paras;
     },
     experience: () => {
+      if (isHidden("experience")) return [];
       const paras: Paragraph[] = [];
-      paras.push(
-        new Paragraph({
-          text: "EXPERIENCE",
-          heading: HeadingLevel.HEADING_1,
-          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-        })
-      );
+      const title = getSectionTitle("experience", "Experience");
+      if (title) {
+        paras.push(
+          new Paragraph({
+            text: title.toUpperCase(),
+            heading: HeadingLevel.HEADING_1,
+            border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+          })
+        );
+      }
       data.experiences.forEach(exp => {
         paras.push(
           new Paragraph({
@@ -757,14 +782,18 @@ export async function generateResumeDOCX(data: ResumeData, settings: Partial<Res
       return paras;
     },
     education: () => {
+      if (isHidden("education")) return [];
       const paras: Paragraph[] = [];
-      paras.push(
-        new Paragraph({
-          text: "EDUCATION",
-          heading: HeadingLevel.HEADING_1,
-          border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
-        })
-      );
+      const title = getSectionTitle("education", "Education");
+      if (title) {
+        paras.push(
+          new Paragraph({
+            text: title.toUpperCase(),
+            heading: HeadingLevel.HEADING_1,
+            border: { bottom: { style: BorderStyle.SINGLE, size: 1 } }
+          })
+        );
+      }
       data.education.forEach(edu => {
         paras.push(new Paragraph({
           children: [
@@ -823,3 +852,152 @@ export const fontSizeOptions = [
   { id: "medium", name: "Medium", description: "Standard readable size" },
   { id: "large", name: "Large", description: "Larger text for emphasis" }
 ];
+
+export interface CoverLetterData {
+  profile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+  coverLetter: string;
+  companyName: string;
+  jobTitle: string;
+}
+
+function generateCoverLetterHTML(data: CoverLetterData): string {
+  const paragraphs = data.coverLetter.split('\n\n').filter(p => p.trim());
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: 'Inter', sans-serif;
+          font-size: 11pt;
+          line-height: 1.6;
+          color: #1f2937;
+          padding: 50px 60px;
+          max-width: 8.5in;
+        }
+        .header {
+          margin-bottom: 30px;
+        }
+        .contact-info {
+          font-size: 10pt;
+          color: #4b5563;
+          margin-bottom: 20px;
+        }
+        .date {
+          margin-bottom: 20px;
+          color: #6b7280;
+        }
+        .greeting {
+          margin-bottom: 20px;
+        }
+        .body p {
+          margin-bottom: 16px;
+          text-align: justify;
+        }
+        .closing {
+          margin-top: 30px;
+        }
+        .signature {
+          margin-top: 40px;
+          font-weight: 500;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="contact-info">
+          <strong>${data.profile.firstName} ${data.profile.lastName}</strong><br>
+          ${data.profile.email} | ${data.profile.phone}
+        </div>
+        <div class="date">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+      </div>
+      <div class="body">
+        ${paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
+      </div>
+      <div class="signature">
+        ${data.profile.firstName} ${data.profile.lastName}
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+export async function generateCoverLetterPDF(data: CoverLetterData): Promise<Buffer> {
+  const html = generateCoverLetterHTML(data);
+  
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium",
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    
+    const pdf = await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      margin: { top: '0.5in', right: '0.5in', bottom: '0.5in', left: '0.5in' }
+    });
+    
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function generateCoverLetterDOCX(data: CoverLetterData): Promise<Buffer> {
+  const paragraphs = data.coverLetter.split('\n\n').filter(p => p.trim());
+  
+  const children: Paragraph[] = [
+    new Paragraph({
+      children: [
+        new TextRun({ text: `${data.profile.firstName} ${data.profile.lastName}`, bold: true, size: 28 })
+      ]
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: `${data.profile.email} | ${data.profile.phone}`, size: 22, color: "666666" })
+      ]
+    }),
+    new Paragraph({ text: "" }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), size: 22, color: "666666" })
+      ]
+    }),
+    new Paragraph({ text: "" }),
+    new Paragraph({ text: "" }),
+  ];
+  
+  paragraphs.forEach(para => {
+    const lines = para.split('\n');
+    lines.forEach((line, idx) => {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: line, size: 22 })],
+        spacing: { after: idx === lines.length - 1 ? 200 : 0 }
+      }));
+    });
+  });
+  
+  children.push(new Paragraph({ text: "" }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: `${data.profile.firstName} ${data.profile.lastName}`, bold: true, size: 22 })]
+  }));
+  
+  const doc = new Document({
+    sections: [{ children }]
+  });
+  
+  return await Packer.toBuffer(doc);
+}

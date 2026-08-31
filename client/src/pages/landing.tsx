@@ -6,15 +6,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-              <FileText className="size-5" />
+            <div className="size-7 sm:size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+              <FileText className="size-4 sm:size-5" />
             </div>
-            <span className="font-serif text-xl font-bold tracking-tight">Apply4Me</span>
+            <span className="font-serif text-lg sm:text-xl font-bold tracking-tight">Apply4Me</span>
           </div>
           <a href="/api/login">
-            <Button data-testid="button-login">
+            <Button size="sm" className="sm:h-10 sm:px-4 sm:py-2" data-testid="button-login">
               Sign In
               <ArrowRight className="size-4 ml-2" />
             </Button>
@@ -22,26 +22,26 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-16 max-w-6xl">
-        <section className="text-center mb-16">
-          <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tight mb-6" data-testid="text-landing-title">
+      <main className="container mx-auto px-4 py-8 sm:py-16 max-w-6xl">
+        <section className="text-center mb-10 sm:mb-16">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-serif font-bold tracking-tight mb-4 sm:mb-6" data-testid="text-landing-title">
             Land Your Dream Job
             <br />
             <span className="text-primary">Faster</span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+          <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 px-2">
             AI-powered resume and cover letter tailoring that highlights your accomplishments 
             and matches them to every job description.
           </p>
           <a href="/api/login">
-            <Button size="lg" className="text-lg px-8" data-testid="button-get-started">
+            <Button size="lg" className="text-base sm:text-lg px-6 sm:px-8" data-testid="button-get-started">
               Get Started Free
               <Sparkles className="size-5 ml-2" />
             </Button>
           </a>
         </section>
 
-        <section className="grid md:grid-cols-3 gap-6 mb-16">
+        <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-10 sm:mb-16">
           <Card className="border-2 hover:border-primary/50 transition-colors">
             <CardHeader>
               <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4">
@@ -127,11 +127,11 @@ export default function LandingPage() {
           </Card>
         </section>
 
-        <section className="text-center bg-primary/5 rounded-2xl p-12">
-          <h2 className="text-2xl md:text-3xl font-serif font-bold mb-4">
+        <section className="text-center bg-primary/5 rounded-xl sm:rounded-2xl p-6 sm:p-12">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold mb-3 sm:mb-4">
             Ready to accelerate your job search?
           </h2>
-          <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 max-w-xl mx-auto">
             Join thousands of job seekers who are landing interviews faster with AI-tailored applications.
           </p>
           <a href="/api/login">
@@ -143,9 +143,9 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t py-6 mt-16">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          Built with Replit
+      <footer className="border-t py-4 sm:py-6 mt-8 sm:mt-16">
+        <div className="container mx-auto px-4 text-center text-xs sm:text-sm text-muted-foreground">
+          Built by <a href="https://joelalexandrekhang.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Joel Alexandre Khang</a>
         </div>
       </footer>
     </div>

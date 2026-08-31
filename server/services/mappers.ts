@@ -38,7 +38,7 @@ function contactBlock(agg: ProfileAggregate): ResumeData["profile"] {
     lastName: profile.lastName,
     email: profile.email,
     phone: profile.phone,
-    location: profile.location,
+    linkedinUrl: profile.linkedinUrl ?? "",
     headline: profile.headline,
   };
 }

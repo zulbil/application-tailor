@@ -1,0 +1,2 @@
+- [Replit AI gateway providers](ai-gateway-providers.md) — the AI_INTEGRATIONS_OPENAI_BASE_URL gateway also serves Anthropic at `/anthropic`; Claude model names are rejected on the `/openai` path.
+- [Headless PDF browser dependency](headless-pdf-browser.md) — use Playwright Core with system Chromium; avoid browser-download bundles while the project remains on Node 20.

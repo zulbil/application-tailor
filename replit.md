@@ -2,7 +2,7 @@
 
 ## Overview
 
-Apply4Me is a personal job application tool that generates tailored resumes and cover letters using AI. Users manage their professional profile (work experience, education, skills) through forms, then input job descriptions to generate customized application materials. The app uses OpenAI-compatible APIs via Replit's AI Integrations to rewrite and tailor content for specific job opportunities.
+Apply4Me is a personal job application tool that generates tailored resumes and cover letters using AI. Users manage their professional profile (work experience, education, skills) through forms, then input job descriptions to generate customized application materials. The app includes mock interview simulations with AI-generated questions tailored to job descriptions and difficulty levels, providing real-time feedback and scoring on answers. The app uses OpenAI-compatible APIs via Replit's AI Integrations to rewrite and tailor content for specific job opportunities.
 
 ## User Preferences
 
@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL via Drizzle ORM
 - **Schema Location**: `shared/schema.ts` defines all tables
-- **Tables**: profiles, experiences, education, job_applications, weekly_challenges
+- **Tables**: profiles, experiences, education, job_applications, weekly_challenges, interview_simulations
 - **Migrations**: Drizzle Kit with `db:push` for schema sync
 
 ### Key Design Patterns
