@@ -3,11 +3,11 @@ import {
   generateCoverLetter,
   evaluateResumeRanking,
   analyzeJobFitGap,
-} from "../openai";
+} from "../llm";
 import type { AiPort } from "./types";
 
-/** Binds the concrete OpenAI functions to the AiPort interface. */
-export function createOpenAiAdapter(): AiPort {
+/** Binds the concrete LLM functions to the AiPort interface. */
+export function createAiAdapter(): AiPort {
   return {
     generateResume: generateTailoredResume,
     generateCoverLetter,

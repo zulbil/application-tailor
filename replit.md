@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express
 - **API Design**: RESTful JSON API under `/api/*` routes
-- **AI Integration**: OpenAI-compatible API via Replit's AI Integrations service (no separate API key needed)
+- **AI Integration**: Anthropic Claude (Sonnet 4.5 / Haiku 4.5) via Replit's AI Integrations service (no separate API key needed)
 - **Build**: ESBuild for production bundling with dependency allowlisting for cold start optimization
 
 ### Data Storage
@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### AI Services
-- **Replit AI Integrations**: Provides OpenAI-compatible API access through environment variables `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY`
+- **Replit AI Integrations**: Provides gateway access to Anthropic Claude through environment variables `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY`
 
 ### Database
 - **PostgreSQL**: Connection via `DATABASE_URL` environment variable

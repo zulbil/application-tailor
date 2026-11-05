@@ -1,13 +1,32 @@
 import type { ProfileRepository, JobApplicationRepository } from "../repositories/types";
 import type { AiPort, GeneratedResume } from "./types";
-import type { GapAnalysisResult, ResumeRankingResult } from "../openai";
+import type { GapAnalysisResult, ResumeRankingResult } from "../llm";
 import type { GenerateForProfileInput, GenerateForApplicationInput } from "../http/schemas";
 import type { ApplicationService } from "./application.service";
 import { BadRequestError, NotFoundError } from "../http/errors";
+import type { ProfileAggregate } from "../models";
 import { toAiProfile } from "./mappers";
+import { findUnsupportedNumbers } from "./number-validator";
 
 const NO_PROFILE = "Please save your profile first";
 const NO_RESUME = "Resume not found. Generate one first.";
+
+function profileSources(agg: ProfileAggregate): string[] {
+  const { profile } = agg;
+  return [
+    profile.headline,
+    profile.skills,
+    ...agg.experiences.flatMap((e) => [e.company, e.title, e.startDate, e.endDate, e.responsibilities]),
+    ...agg.education.flatMap((e) => [e.school, e.degree, e.field, e.startDate, e.endDate]),
+  ];
+}
+
+function resumeText(resume: GeneratedResume): string[] {
+  return [
+    ...(resume.logline ?? []),
+    ...(resume.experiences ?? []).flatMap((e) => e.bullets ?? []),
+  ];
+}
 
 export class GenerationService {
   constructor(
@@ -26,27 +45,37 @@ export class GenerationService {
   async resumeForProfile(
     userId: string,
     input: GenerateForProfileInput,
-  ): Promise<GeneratedResume> {
+  ): Promise<GeneratedResume & { unsupportedNumbers: string[] }> {
     const profile = await this.requireProfile(userId);
-    return this.ai.generateResume(toAiProfile(profile), {
+    const resume = await this.ai.generateResume(toAiProfile(profile), {
       jobDescription: input.jobDescription,
       jobTitle: input.jobTitle,
       companyName: input.companyName,
       tone: input.tone,
     });
+    const unsupportedNumbers = findUnsupportedNumbers(resumeText(resume), [
+      ...profileSources(profile),
+      input.jobDescription,
+    ]);
+    return { ...resume, unsupportedNumbers };
   }
 
   async coverLetterForProfile(
     userId: string,
     input: GenerateForProfileInput,
-  ): Promise<{ coverLetter: string }> {
+  ): Promise<{ coverLetter: string; unsupportedNumbers: string[] }> {
     const profile = await this.requireProfile(userId);
-    return this.ai.generateCoverLetter(toAiProfile(profile), {
+    const result = await this.ai.generateCoverLetter(toAiProfile(profile), {
       jobDescription: input.jobDescription,
       jobTitle: input.jobTitle,
       companyName: input.companyName,
       tone: input.tone,
     });
+    const unsupportedNumbers = findUnsupportedNumbers(
+      [result.coverLetter],
+      [...profileSources(profile), input.jobDescription],
+    );
+    return { ...result, unsupportedNumbers };
   }
 
   async analyzeGap(
@@ -66,7 +95,7 @@ export class GenerationService {
     userId: string,
     applicationId: string,
     input: GenerateForApplicationInput,
-  ): Promise<{ resume: GeneratedResume; coverLetter: string }> {
+  ): Promise<{ resume: GeneratedResume; coverLetter: string; unsupportedNumbers: string[] }> {
     const { profile } = await this.applicationService.requireOwnedWithProfile(
       userId,
       applicationId,
@@ -107,7 +136,12 @@ export class GenerationService {
       coverLetter.coverLetter,
     );
 
-    return { resume, coverLetter: coverLetter.coverLetter };
+    const unsupportedNumbers = findUnsupportedNumbers(
+      [...resumeText(resume), coverLetter.coverLetter],
+      [...profileSources(profile), application.jobDescription],
+    );
+
+    return { resume, coverLetter: coverLetter.coverLetter, unsupportedNumbers };
   }
 
   async evaluateRanking(userId: string, applicationId: string): Promise<ResumeRankingResult> {

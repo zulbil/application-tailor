@@ -62,4 +62,24 @@ describe("generation", () => {
     expect(res.status).toBe(400);
     expect(generateResume).not.toHaveBeenCalled();
   });
+
+  it("returns unsupported numbers from generated resume and cover letter", async () => {
+    generateResume.mockResolvedValue({
+      ...RESUME,
+      logline: ["Cut costs by 63%", "Grew [X%] faster", "Shipped 5 features"],
+    });
+    generateCoverLetter.mockResolvedValue({ coverLetter: "I led 12 engineers." });
+    const app = await ctx.appAs(USER);
+
+    const resume = await request(app)
+      .post("/api/generate-resume")
+      .send({ jobDescription: "Ship 5 features", tone: "Professional" });
+    expect(resume.status).toBe(200);
+    expect(resume.body.unsupportedNumbers).toEqual(["63%"]);
+
+    const letter = await request(app)
+      .post("/api/generate-cover-letter")
+      .send({ jobDescription: "Ship 5 features", tone: "Professional" });
+    expect(letter.body.unsupportedNumbers).toEqual(["12"]);
+  });
 });

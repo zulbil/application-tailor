@@ -25,7 +25,7 @@ A personal job application tool that generates tailored resumes and cover letter
 ### Backend
 - Node.js with Express
 - PostgreSQL with Drizzle ORM
-- OpenAI-compatible API for AI generation
+- Anthropic Claude (Sonnet 4.5 / Haiku 4.5) via Replit AI Integrations for AI generation (`server/llm.ts`)
 
 ## Getting Started
 
@@ -41,8 +41,8 @@ The following environment variables are required:
 
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Secret for session management
-- `AI_INTEGRATIONS_OPENAI_BASE_URL` - OpenAI API base URL
-- `AI_INTEGRATIONS_OPENAI_API_KEY` - OpenAI API key
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` - Replit AI gateway base URL (the Anthropic route is derived from it)
+- `AI_INTEGRATIONS_OPENAI_API_KEY` - Replit AI gateway API key
 - `REPL_ID` - OIDC client id for Replit auth
 
 Optional: `PORT` (default 5000), `ISSUER_URL` (default `https://replit.com/oidc`),

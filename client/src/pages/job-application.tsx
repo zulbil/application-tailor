@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { JobApplicationInput, GeneratedResume, GeneratedCoverLetter, Profile, ResumeSettings, ResumeTemplatesResponse, ResumeRanking, GapAnalysis, InterviewSimulation, SimulationDifficulty, AnswerEvaluation } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -133,6 +134,7 @@ export default function JobApplicationPage() {
   
   const [resume, setResume] = useState<GeneratedResume | null>(null);
   const [coverLetter, setCoverLetter] = useState<GeneratedCoverLetter | null>(null);
+  const [unsupportedNumbers, setUnsupportedNumbers] = useState<string[]>([]);
   const [templates, setTemplates] = useState<ResumeTemplatesResponse | null>(null);
   const [settings, setSettings] = useState<ResumeSettings>(defaultSettings);
   const [showCustomize, setShowCustomize] = useState(false);
@@ -551,6 +553,7 @@ export default function JobApplicationPage() {
       
       setResume(result.resume);
       setCoverLetter({ coverLetter: result.coverLetter });
+      setUnsupportedNumbers(result.unsupportedNumbers ?? []);
       setRanking(null);
       setGapAnalysis(null);
       gapAnalysisRef.current = null;
@@ -1188,6 +1191,15 @@ export default function JobApplicationPage() {
               </div>
             ) : (
               <div className="space-y-6">
+                {unsupportedNumbers.length > 0 && (
+                  <Alert variant="destructive" data-testid="warning-unsupported-numbers">
+                    <AlertTriangle className="size-4" />
+                    <AlertTitle>Verify these numbers before applying</AlertTitle>
+                    <AlertDescription>
+                      These figures are not in your profile or the job description: {unsupportedNumbers.join(", ")}. Replace them with real values or remove them.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="flex justify-between items-center mb-2">
                   <Dialog open={showCustomize} onOpenChange={setShowCustomize}>
                     <DialogTrigger asChild>

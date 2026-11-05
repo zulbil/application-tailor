@@ -38,8 +38,8 @@ function extractJsonObject(text: string): string {
   return text.slice(start);
 }
 
-// Thin compatibility wrapper so existing call sites keep the OpenAI chat.completions shape.
-const openai = {
+// Thin compatibility wrapper so existing call sites keep the chat.completions shape.
+const llm = {
   chat: {
     completions: {
       create: async (params: {
@@ -144,7 +144,7 @@ export async function generateTailoredResume(
   
   const systemMessage = `You are an expert resume writer with 15 years of experience placing senior engineers at top tech companies. You specialize in strategic resume positioning that is:
 - 100% truthful (never fabricate experience)
-- Metric-dense (every bullet has measurable impact)
+- Impact-focused (uses only metrics stated in the candidate's profile; never invents numbers)
 - Job-targeted (explicit connections to requirements)
 - ATS-optimized (clean formatting, keyword-rich)
 - Recruiter-friendly (scannable in 6 seconds)
@@ -222,23 +222,29 @@ Create exactly 3 bullets that represent the STRONGEST career achievements that m
 
 **CRITICAL RULES:**
 - Each bullet = ONE complete achievement from candidate's actual experience
-- Must include SPECIFIC METRICS (numbers, %, time, scale, money)
+- Include metrics ONLY when the profile states them; otherwise use qualitative impact or a placeholder like [X%] / [N users]
 - Must connect to job requirements (use terminology from job description)
 - Length: Maximum 2 lines (160 characters including spaces)
-- Formula: [Achievement] + [Metric] + [Job Relevance]
+- Formula: [Achievement] + [Metric from profile, or qualitative impact/placeholder] + [Job Relevance]
+
+**NUMBERS RULE (applies to every figure you write):**
+- A number, percentage, currency amount, "K"/"M" value, multiplier (e.g. 3x), team size, or user count may appear ONLY if it is stated in the candidate's profile above (or is a figure from the job description restated as a requirement).
+- NEVER invent, estimate, round up, or infer a metric.
+- If an achievement has no supporting number, either describe the impact qualitatively (e.g. "significantly reduced load times") or insert a visible placeholder for the candidate to fill in, such as [X%], [N users], [$X], or [N engineers].
 
 **Bullet Selection Strategy:**
 - Bullet 1: Largest/most impressive technical achievement + job relevance
 - Bullet 2: Direct experience with job's required technologies/platforms
-- Bullet 3: Consistent track record of measurable impact (performance improvements, cost savings, etc.)
+- Bullet 3: Consistent track record of impact (performance improvements, cost savings, etc.), quantified only where the profile does so
 
 **Good Examples:**
-- "Architected serverless platform consolidating 450+ APIs with <500ms response times and 99.9% uptime—expertise directly applicable to large-scale e-commerce product feeds"
-- "Built Shopify e-commerce storefront and integrated payment gateway APIs (LOGIRAD, Stripe, PayPal), demonstrating proven checkout flow expertise"
-- "Delivered 7+ years full-stack development (Node.js/TypeScript, React/Next.js) with consistent 25-35% performance improvements and 80% faster deployments"
+(Figures below are illustrative only. Never reuse them; use only numbers from the candidate's profile.)
+- With a profile-backed number: "Architected serverless platform consolidating [N]+ APIs with sub-[X]ms response times—expertise directly applicable to large-scale e-commerce product feeds"
+- Qualitative (no number in profile): "Built Shopify e-commerce storefront and integrated payment gateway APIs (Stripe, PayPal), demonstrating proven checkout flow expertise"
+- Placeholder (impact likely but unstated): "Optimized React/Next.js build pipeline, cutting deployment time by [X%]"
 
 **Bad Examples (NEVER DO THIS):**
-- "Experienced full-stack developer with strong technical skills" (no metrics, vague)
+- "Experienced full-stack developer with strong technical skills" (vague, no concrete achievement)
 - "Worked on various projects using React and Node.js to build web applications for different clients over the past several years" (too long, no specific achievements)
 
 ---
@@ -249,15 +255,18 @@ For EACH work experience, create exactly 3 bullets that prove the candidate can 
 
 **MANDATORY BULLET REQUIREMENTS:**
 
-1. **Every bullet MUST have measurable metrics:**
-   - Performance: response times, load times, uptime percentages
-   - Scale: API count, user volumes, traffic numbers, data processed
-   - Impact: % improvements, time savings, cost reductions
-   - Business: revenue, conversion rates, user satisfaction scores
-   - Team: people mentored, team size, stakeholders managed
+1. **Use metrics only when the profile provides them:**
+   - Metric types to look for in the profile: performance (response times, uptime), scale (API count, users, traffic), impact (% improvements, time/cost savings), business (revenue, conversion), team (people mentored, team size)
+   - If the profile gives no number for an achievement, describe the impact qualitatively or use a placeholder such as [X%] or [N users]
+   - Never invent a number to fill the gap
+
+   **NUMBERS RULE (applies to every figure you write):**
+   - A number, percentage, currency amount, "K"/"M" value, multiplier (e.g. 3x), team size, or user count may appear ONLY if it is stated in the candidate's profile above (or is a figure from the job description restated as a requirement).
+   - NEVER invent, estimate, round up, or infer a metric.
+   - If an achievement has no supporting number, either describe the impact qualitatively (e.g. "significantly reduced load times") or insert a visible placeholder for the candidate to fill in, such as [X%], [N users], [$X], or [N engineers].
 
 2. **Every bullet MUST be maximum 2 lines (160 characters):**
-   - Use abbreviations: "million" → "M", "thousand" → "K"
+   - Use abbreviations for profile-provided figures: "million" → "M", "thousand" → "K"
    - Use slash notation: "React and Next.js" → "React/Next.js"
    - Use em dashes for efficiency: "which demonstrates" → "—"
    - Cut weak verbs: "ensuring" → "with", "providing" → "for"
@@ -270,7 +279,7 @@ For EACH work experience, create exactly 3 bullets that prove the candidate can 
    - Connection to job requirements (explicit when possible, implicit minimum)
 
 4. **Bullet Selection Strategy (per role):**
-   - Bullet 1: Most job-relevant achievement with strongest metrics
+   - Bullet 1: Most job-relevant achievement (strongest profile-backed metric if any)
    - Bullet 2: Different skill dimension (if Bullet 1 is backend, show frontend/devops/etc.)
    - Bullet 3: Business impact, scale, or collaboration achievement
 
@@ -281,17 +290,17 @@ For EACH work experience, create exactly 3 bullets that prove the candidate can 
    
    The recruiter is smart enough to make connections themselves.
    
-   Format: [Action] + [Technology] + [Scale/Metric] + [Result]
+   Format: [Action] + [Technology] + [Scale/Metric if in profile, else qualitative or placeholder] + [Result]
    
    Examples:
-   ✅ 'Architected microservices API handling 450+ integrations with 
-       sub-500ms response times'
-   ✅ 'Integrated payment processing for $200K+ annual transaction volume 
-       with 99.9% uptime'
-   ✅ 'Optimized database queries reducing load times from 3.2s to 800ms 
-       for 5M+ monthly users'
+   ✅ 'Architected microservices API handling [N]+ integrations with 
+       sub-[X]ms response times'
+   ✅ 'Integrated payment processing with Stripe and PayPal for a 
+       high-volume checkout flow'
+   ✅ 'Optimized database queries, noticeably reducing page load times'
+   (Bracketed values are placeholders. Replace with profile figures only if the profile has them.)
    
-   Let the numbers and technologies speak for themselves.
+   Let the technologies and real results speak for themselves.
    
    FORBIDDEN PHRASES:
    ❌ 'applicable to...'
@@ -304,15 +313,15 @@ For EACH work experience, create exactly 3 bullets that prove the candidate can 
    Just state what you built and the impressive results.
 
 **Formula for Each Bullet:**
-[Action Verb] + [Technology/Platform] + [What You Built/Did] + [Measurable Result] + [Job Connection if space allows]
+[Action Verb] + [Technology/Platform] + [What You Built/Did] + [Result: profile metric, qualitative impact, or placeholder] + [Job Connection if space allows]
 
 **Example Transformation:**
 
 Original experience: "Worked on building APIs for job aggregation system using Node.js"
 
-BAD bullet: "Developed APIs for job aggregation using Node.js and TypeScript" (no metrics, no impact)
+BAD bullet: "Developed APIs for job aggregation using Node.js and TypeScript" (no impact)
 
-GOOD bullet: "Architected serverless platform on Google Cloud consolidating 450+ APIs with <500ms response time and 99.9% uptime—directly applicable to high-traffic e-commerce product feeds"
+GOOD bullet: "Architected serverless platform on Google Cloud consolidating job-board APIs into one service—directly applicable to high-traffic e-commerce product feeds" (no number is used because the profile gave none; add [N]+ APIs as a placeholder if scale is likely)
 
 **Condensing Techniques:**
 - Before: "ensuring ADA compliance and providing seamless navigation for critical health information delivery"
@@ -321,7 +330,6 @@ GOOD bullet: "Architected serverless platform on Google Cloud consolidating 450+
 - Before: "demonstrating expertise critical for large-scale e-commerce"
 - After: "directly applicable to large-scale e-commerce"
 
-- Before: "5+ million monthly" → "5M+ monthly"
 - Before: "React and Next.js" → "React/Next.js"
 
 ---
@@ -351,9 +359,9 @@ Before returning the JSON, verify:
    - ❌ NEVER invent team size, revenue numbers, or projects
 
 2. **Metric Verification:**
-   - ✅ Every single bullet (summary + experience) has at least ONE metric
-   - ✅ Metrics are specific (not "many", "several", "significant")
-   - ✅ Metrics are realistic and verifiable
+   - ✅ Every number, %, currency, K/M value, and multiplier appears in the candidate's profile
+   - ✅ Bullets without a profile-backed number use qualitative impact or a placeholder like [X%] / [N users]
+   - ✅ No number was estimated, rounded up, or inferred
 
 3. **Length Compliance:**
    - ✅ Every summary bullet is maximum 160 characters
@@ -375,7 +383,7 @@ Before returning the JSON, verify:
    - ❌ Inventing projects or achievements
    - ❌ Claiming technologies never used
    - ❌ Fabricating team sizes or business metrics
-   - ❌ Generic bullets without metrics
+   - ❌ Any number not present in the candidate's profile
    - ❌ Adding skills from job description that candidate doesn't have
    - ❌ Listing skills not found in candidate's profile or experience
 
@@ -444,7 +452,7 @@ ${criticalGaps.length > 0 ? criticalGaps.map(g => "- " + g).join("\n") : "- Focu
 
 1. **Summary Bullets Strategy:**
    - Lead with your STRONGEST, most impressive achievements regardless of direct job match
-   - Emphasize metrics that show impact and scale
+   - Emphasize profile-stated metrics that show impact and scale (never add new ones)
    - Highlight transferable skills: problem-solving, architecture, performance optimization
    - Show breadth of experience and adaptability
 
@@ -476,9 +484,9 @@ Return ONLY valid JSON with this exact structure:
 
 {
   "logline": [
-    "First power bullet with metric and job relevance (max 160 chars)",
-    "Second power bullet with metric and job relevance (max 160 chars)",
-    "Third power bullet with metric and job relevance (max 160 chars)"
+    "First power bullet with job relevance and a profile-backed metric, qualitative impact, or [X] placeholder (max 160 chars)",
+    "Second power bullet with job relevance and a profile-backed metric, qualitative impact, or [X] placeholder (max 160 chars)",
+    "Third power bullet with job relevance and a profile-backed metric, qualitative impact, or [X] placeholder (max 160 chars)"
   ],
   "experiences": [
     {
@@ -488,9 +496,9 @@ Return ONLY valid JSON with this exact structure:
       "start": "Start Date (unchanged)",
       "end": "End Date (unchanged)",
       "bullets": [
-        "First bullet with action verb, technology, metric, impact, job connection (max 160 chars)",
-        "Second bullet with action verb, technology, metric, impact, job connection (max 160 chars)",
-        "Third bullet with action verb, technology, metric, impact, job connection (max 160 chars)"
+        "First bullet with action verb, technology, impact (profile-backed metric or [X] placeholder only), job connection (max 160 chars)",
+        "Second bullet with action verb, technology, impact (profile-backed metric or [X] placeholder only), job connection (max 160 chars)",
+        "Third bullet with action verb, technology, impact (profile-backed metric or [X] placeholder only), job connection (max 160 chars)"
       ]
     }
   ],
@@ -504,16 +512,16 @@ Return ONLY valid JSON with this exact structure:
 
 - **3 bullets per section** (summary and each experience)
 - **2 lines maximum** per bullet (160 characters)
-- **Every bullet has metrics** (numbers, %, time, scale)
+- **Numbers only from the profile** (otherwise qualitative impact or a placeholder like [X%])
 - **100% truthful** (reframe, never fabricate)
 - **Job-targeted** (explicit connections to requirements)
 - **Professional tone** (senior-level communication)
 
 Generate the strategic, tailored resume now.`;
 
-  console.log("Calling OpenAI for strategic resume generation...");
+  console.log("Calling AI for strategic resume generation...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -524,13 +532,13 @@ Generate the strategic, tailored resume now.`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI strategic resume response received");
+  console.log("AI strategic resume response received");
 
   let parsed: any;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI response:", content);
+    console.error("Failed to parse AI response:", content);
     console.error("Parse error:", e);
     parsed = {};
   }
@@ -651,7 +659,7 @@ export async function generateCoverLetter(
 ): Promise<{ coverLetter: string }> {
   const systemMessage = `You are an expert cover letter writer with 15 years of experience. Your cover letters are:
 - Personalized and engaging (not generic templates)
-- Results-focused (highlight specific achievements with metrics)
+- Results-focused (highlight specific achievements; use only metrics stated in the profile)
 - Job-targeted (explicitly address company and role requirements)
 - Concise (one page maximum)
 - Professional yet warm (appropriate tone for audience)
@@ -716,8 +724,9 @@ Create a compelling one-page cover letter for ${profile.firstName} ${profile.las
    - Show you've researched what they do
 
 3. **Metrics and Achievements:**
-   - Include 2-3 specific quantifiable achievements
-   - Use the same impressive metrics from resume
+   - Include 2-3 specific achievements from the candidate's profile
+   - Numbers may ONLY come from the candidate's profile (or the job description). NEVER invent, estimate, or round up a figure.
+   - If an achievement has no supporting number, describe the impact qualitatively or use a visible placeholder such as [X%] or [N users]
    - Connect achievements to job requirements
 
 4. **Length:**
@@ -789,9 +798,9 @@ Return ONLY valid JSON:
 
 Dear Hiring Manager,
 
-I am writing to express my strong interest in the [Job Title] position at [Company]. With [X] years of experience in [relevant field] and a proven track record of [impressive achievement with metric], I am confident I would make a significant contribution to your team.
+I am writing to express my strong interest in the [Job Title] position at [Company]. With [X] years of experience in [relevant field] and a proven track record of [impressive achievement], I am confident I would make a significant contribution to your team.
 
-In my current role at [Company], I [specific achievement with numbers that matches job requirement]. This experience has prepared me to excel in [specific responsibility from job description], particularly [another specific requirement]. For example, [brief story with metric].
+In my current role at [Company], I [specific achievement that matches job requirement, with a number only if the profile has one]. This experience has prepared me to excel in [specific responsibility from job description], particularly [another specific requirement]. For example, [brief story, with a number only if the profile has one].
 
 I am particularly drawn to [Company] because [specific reason related to their mission/product/culture]. Your focus on [something from job description] aligns perfectly with my expertise in [relevant skill]. I am excited about the opportunity to [specific contribution you could make].
 
@@ -804,9 +813,9 @@ Sincerely,
 
 Generate the personalized, compelling cover letter now.`;
 
-  console.log("Calling OpenAI for cover letter generation...");
+  console.log("Calling AI for cover letter generation...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -817,13 +826,13 @@ Generate the personalized, compelling cover letter now.`;
   });
 
   const content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI cover letter response received");
+  console.log("AI cover letter response received");
 
   let parsed: any;
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI cover letter response:", content);
+    console.error("Failed to parse AI cover letter response:", content);
     console.error("Parse error:", e);
     parsed = {};
   }
@@ -909,9 +918,9 @@ Job Description: ${jobDescription.slice(0, 1500)}
 
 Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 improvements. Return valid JSON only.`;
 
-  console.log("Calling OpenAI for resume ranking evaluation...");
+  console.log("Calling AI for resume ranking evaluation...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -922,7 +931,7 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI ranking evaluation response received");
+  console.log("AI ranking evaluation response received");
 
   // Strip markdown code fences if present
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
@@ -937,7 +946,7 @@ Score each category 0-100. Provide exactly 3 strengths, 3 weaknesses, and 3 impr
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    console.error("Failed to parse OpenAI ranking response:", content);
+    console.error("Failed to parse AI ranking response:", content);
     parsed = {};
   }
 
@@ -1029,11 +1038,11 @@ export async function applyResumeRecommendations(
 CRITICAL RULES:
 1. You CANNOT invent new experience, companies, or technologies the candidate doesn't have
 2. You can ONLY restructure, reword, and emphasize existing content
-3. Every metric and achievement must come from the original resume - extract or estimate realistic numbers from context
-4. Focus on: better phrasing, stronger action verbs, clearer metrics, better job alignment
+3. Every metric and achievement must come from the original resume. NEVER invent or estimate numbers; use qualitative impact or a placeholder like [X%] when no number exists
+4. Focus on: better phrasing, stronger action verbs, clearer impact, better job alignment
 5. Keep the same number of experiences and maintain truthfulness
 6. Output must be valid JSON matching the exact input structure
-7. EVERY bullet point MUST include specific numbers and quantifiable impact (%, $, time saved, users, etc.)
+7. Use only numbers already present in the original resume; where none exists, use qualitative impact or a placeholder like [X%] / [N users]
 8. EXACTLY 3 bullet points per experience - no more, no less`;
 
   const userMessage = `Improve this resume based on the evaluation feedback.
@@ -1062,9 +1071,9 @@ JOB DESCRIPTION (for alignment):
 ${jobDescription.slice(0, 1000)}
 
 Instructions:
-1. Rewrite the summary bullets to better highlight job-relevant achievements WITH NUMBERS
-2. For EACH experience, create EXACTLY 3 bullet points - each with quantifiable impact
-3. Every bullet MUST have specific metrics: percentages, dollar amounts, time saved, users impacted, etc.
+1. Rewrite the summary bullets to better highlight job-relevant achievements using only numbers already in the current resume
+2. For EACH experience, create EXACTLY 3 bullet points - each with clear impact
+3. Keep existing metrics; never add new numbers. Where a bullet has none, use qualitative impact or a placeholder like [X%] / [N users]
 4. Use strong action verbs: Architected, Spearheaded, Optimized, Delivered, Reduced, Increased
 5. Better align skills section with job requirements (only include skills candidate actually has)
 6. Address the weaknesses and apply the recommended improvements
@@ -1073,9 +1082,9 @@ Instructions:
 
 Return a JSON object with: logline (array of 3 strings), experiences (array with company, title, location, start, end, bullets - EXACTLY 3 bullets each), technologies (string), relevantSkills (array of strings)`;
 
-  console.log("Calling OpenAI to apply resume recommendations...");
+  console.log("Calling AI to apply resume recommendations...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1086,7 +1095,7 @@ Return a JSON object with: logline (array of 3 strings), experiences (array with
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI recommendation application response received");
+  console.log("AI recommendation application response received");
 
   if (content.startsWith("```")) {
     content = content.replace(/```json?\n?/g, "").replace(/```$/g, "").trim();
@@ -1172,9 +1181,9 @@ Steps:
 
 Return valid JSON only.`;
 
-  console.log("Calling OpenAI for gap analysis...");
+  console.log("Calling AI for gap analysis...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1185,7 +1194,7 @@ Return valid JSON only.`;
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI gap analysis response received");
+  console.log("AI gap analysis response received");
 
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1348,9 +1357,9 @@ Analyze and return JSON with:
 
 Be specific and actionable. Don't be generic.`;
 
-  console.log("Calling OpenAI for LinkedIn profile analysis...");
+  console.log("Calling AI for LinkedIn profile analysis...");
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1361,7 +1370,7 @@ Be specific and actionable. Don't be generic.`;
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI LinkedIn analysis response received");
+  console.log("AI LinkedIn analysis response received");
 
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1501,9 +1510,9 @@ Return ONLY valid JSON:
 
 Generate all 20 questions now.`;
 
-  console.log(`Calling OpenAI for ${skill} training (${difficulty})...`);
+  console.log(`Calling AI for ${skill} training (${difficulty})...`);
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1514,7 +1523,7 @@ Generate all 20 questions now.`;
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI skill training response received");
+  console.log("AI skill training response received");
 
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1657,9 +1666,9 @@ Return ONLY valid JSON:
 
 Generate all 10 questions now.`;
 
-  console.log(`Calling OpenAI for application training (${category}/${difficulty})...`);
+  console.log(`Calling AI for application training (${category}/${difficulty})...`);
 
-  const response = await openai.chat.completions.create({
+  const response = await llm.chat.completions.create({
     model: "claude-sonnet-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1670,7 +1679,7 @@ Generate all 10 questions now.`;
   });
 
   let content = response.choices[0]?.message?.content || "{}";
-  console.log("OpenAI application training response received");
+  console.log("AI application training response received");
 
   content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1787,7 +1796,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await llm.chat.completions.create({
     model: "claude-haiku-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1875,7 +1884,7 @@ Return ONLY valid JSON:
   "sampleAnswer": "A strong sample answer that demonstrates best practices"
 }`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await llm.chat.completions.create({
     model: "claude-haiku-4-5",
     messages: [
       { role: "system", content: systemMessage },
@@ -1928,7 +1937,7 @@ Write a 2-3 paragraph encouraging summary that:
 
 Be specific and constructive. Use a supportive, coaching tone.`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await llm.chat.completions.create({
     model: "claude-haiku-4-5",
     messages: [
       { role: "system", content: systemMessage },
