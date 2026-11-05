@@ -1,4 +1,4 @@
-import type { ProfileData } from "../openai";
+import type { ProfileData } from "../llm";
 import type { ResumeData, ResumeSettings } from "../resumeGenerator";
 import type { ProfileAggregate, JobApplication } from "../models";
 

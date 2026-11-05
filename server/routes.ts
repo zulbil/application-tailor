@@ -32,7 +32,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   const repositories =
     deps.repositories ?? (await import("./repositories")).createRepositories();
-  const ai = deps.ai ?? (await import("./services/openai.adapter")).createOpenAiAdapter();
+  const ai = deps.ai ?? (await import("./services/ai.adapter")).createAiAdapter();
   const documents =
     deps.documents ?? (await import("./services/document.adapter")).createDocumentAdapter();
   const setupAuth = deps.setupAuth ?? (await import("./replitAuth")).setupAuth;

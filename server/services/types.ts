@@ -1,4 +1,4 @@
-import type { ProfileData, JobApplicationData, ResumeRankingResult, GapAnalysisResult } from "../openai";
+import type { ProfileData, JobApplicationData, ResumeRankingResult, GapAnalysisResult } from "../llm";
 import type { ResumeData, ResumeSettings } from "../resumeGenerator";
 import type { GeneratedResume } from "../models";
 
@@ -6,7 +6,7 @@ export type { GeneratedResume } from "../models";
 
 /**
  * The AI capability the app depends on, isolated behind an interface so the
- * concrete OpenAI implementation can be swapped or faked in tests.
+ * concrete LLM implementation can be swapped or faked in tests.
  */
 export interface AiPort {
   generateResume(profile: ProfileData, job: JobApplicationData): Promise<GeneratedResume>;

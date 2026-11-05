@@ -28,7 +28,6 @@ const envSchema = z.object({
   AI_INTEGRATIONS_OPENAI_API_KEY: z
     .string()
     .min(1, "AI_INTEGRATIONS_OPENAI_API_KEY is required"),
-  AI_MODEL: z.string().min(1).default("gpt-4o"),
 
   // Logging
   LOG_LEVEL: z

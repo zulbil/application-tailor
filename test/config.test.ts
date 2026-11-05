@@ -15,7 +15,6 @@ describe("parseConfig", () => {
     const cfg = parseConfig({ ...validEnv, PORT: undefined });
     expect(cfg.PORT).toBe(5000);
     expect(cfg.ISSUER_URL).toBe("https://replit.com/oidc");
-    expect(cfg.AI_MODEL).toBe("gpt-4o");
   });
 
   it("coerces PORT to a number", () => {

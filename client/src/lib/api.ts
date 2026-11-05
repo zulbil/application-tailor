@@ -134,7 +134,7 @@ export const api = {
     tone: "Professional" | "Friendly" | "Confident",
     updates?: { jobDescription?: string; jobTitle?: string; company?: string },
     gapContext?: { jobMatch: number; criticalGaps: string[]; strongMatches: string[]; isLowMatch: boolean }
-  ): Promise<{ resume: GeneratedResume; coverLetter: string }> => {
+  ): Promise<{ resume: GeneratedResume; coverLetter: string; unsupportedNumbers?: string[] }> => {
     const response = await fetch(`/api/applications/${id}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
